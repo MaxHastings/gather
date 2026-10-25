@@ -43,7 +43,7 @@ The hosted service has [Terms](https://gather-friends.max-jacob-hastings.workers
 Gather runs on Cloudflare (a Worker, one SQLite Durable Object and an R2 bucket) or as a plain Node server with SQLite and local file storage.
 
 ```sh
-git clone https://github.com/MaxHastings/gather-public.git gather
+git clone https://github.com/MaxHastings/gather.git gather
 cd gather
 npm ci
 npm run dev        # starts the app against a local Node/SQLite backend
