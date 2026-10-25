@@ -129,6 +129,21 @@ export class GatherRoom extends DurableObject {
         .get(key, slot).count > limit
     );
   }
+  // Slower-moving budgets (per IP, per day) than the per-minute limiter above.
+  dailyLimited(key, limit) {
+    const slot = Math.floor(Date.now() / 86_400_000);
+    this.db.prepare("DELETE FROM daily_limits WHERE slot<?").run(slot - 1);
+    this.db
+      .prepare(
+        "INSERT INTO daily_limits VALUES (?,?,1) ON CONFLICT(key,slot) DO UPDATE SET count=count+1",
+      )
+      .run(key, slot);
+    return (
+      this.db
+        .prepare("SELECT count FROM daily_limits WHERE key=? AND slot=?")
+        .get(key, slot).count > limit
+    );
+  }
   async fetch(request) {
     const headers = this.headers(request);
     const json = (data, status = 200) =>
@@ -138,6 +153,9 @@ export class GatherRoom extends DurableObject {
     const url = new URL(request.url);
     this.ctx.storage.sql.exec(
       "CREATE TABLE IF NOT EXISTS request_limits (key TEXT NOT NULL, slot INTEGER NOT NULL,count INTEGER NOT NULL,PRIMARY KEY(key,slot))",
+    );
+    this.ctx.storage.sql.exec(
+      "CREATE TABLE IF NOT EXISTS daily_limits (key TEXT NOT NULL, slot INTEGER NOT NULL,count INTEGER NOT NULL,PRIMARY KEY(key,slot))",
     );
     // Guarantee the retention sweep has an alarm even in a room with no sockets.
     if (!(await this.ctx.storage.getAlarm()))
@@ -171,12 +189,31 @@ export class GatherRoom extends DurableObject {
       }
       if (
         ["/api/sessions", "/api/recover"].includes(url.pathname) &&
-        this.limited(`sessions:${ip}`, 10)
+        this.limited(`sessions:${ip}`, 5)
       )
         return json(
           { error: "Too many sign-ins. Wait a minute before trying again." },
           429,
         );
+      // One connection can only open so many new accounts a day (a household
+      // or school can still share an address comfortably).
+      if (
+        url.pathname === "/api/sessions" &&
+        request.method === "POST" &&
+        this.dailyLimited(`signups:${ip}`, 25)
+      )
+        return json(
+          {
+            error:
+              "Too many new accounts from this connection today. Please try again tomorrow.",
+          },
+          429,
+        );
+      if (
+        ["/api/reports", "/api/public-reports"].includes(url.pathname) &&
+        this.limited(`reports:${ip}`, 10)
+      )
+        return json({ error: "A little too fast. Try again shortly." }, 429);
       if (
         url.pathname.startsWith("/api/invites/") &&
         this.limited(`invites:${ip}`, 30)
@@ -211,6 +248,7 @@ export class GatherRoom extends DurableObject {
           body,
           request.headers.get("Authorization")?.replace(/^Bearer /, ""),
           url.searchParams,
+          { ip },
         ),
       );
     } catch (error) {

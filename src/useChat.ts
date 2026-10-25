@@ -1509,6 +1509,17 @@ export function useChat(session: Session) {
       );
       await accept(updated);
     },
+    report: async (message: Message, reason: string, detail: string) => {
+      await api(session, "/api/reports", {
+        method: "POST",
+        body: JSON.stringify({
+          groupId: message.groupId,
+          messageId: message.id,
+          reason,
+          detail,
+        }),
+      });
+    },
     createGroup,
     joinGroup,
     socket,

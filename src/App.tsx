@@ -403,8 +403,8 @@ function Onboarding({
         {!recovering && initialInvite && invitePreview && (
           <p className="muted invite-preview">
             You’ve been invited · {invitePreview.memberCount}{" "}
-            {invitePreview.memberCount === 1 ? "person" : "people"} so far.
-            Pick a name your friends will recognize.
+            {invitePreview.memberCount === 1 ? "person" : "people"} so far. Pick
+            a name your friends will recognize.
           </p>
         )}
         {recovering ? (
@@ -497,6 +497,27 @@ function Onboarding({
             </>
           )}
         </button>
+        {!recovering && (
+          <p className="muted legal-note">
+            By continuing you agree to the{" "}
+            <a
+              href={`${server.replace(/\/$/, "")}/terms`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Terms
+            </a>{" "}
+            and{" "}
+            <a
+              href={`${server.replace(/\/$/, "")}/privacy`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Privacy
+            </a>
+            . Be kind to each other.
+          </p>
+        )}
         <button
           type="button"
           className="text-button recovery-toggle"
@@ -561,6 +582,7 @@ function Workspace({
       react: (...a) => chatActions.current.react(...a),
       edit: (...a) => chatActions.current.edit(...a),
       deleteMessage: (m) => chatActions.current.deleteMessage(m),
+      report: (...a) => chatActions.current.report(...a),
       retry: (m) => chatActions.current.retry(m),
       reply: (m) => {
         setReply((current) => ({ ...current, [m.groupId]: m }));

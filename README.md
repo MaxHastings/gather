@@ -4,70 +4,76 @@
 
 ![Gather voice call and chat](docs/previews/gather-preview.png)
 
-A free, open-source, Skype/MSN/AIM-inspired place for your small crew. Private group chat and voice for a small group of friends. Windows desktop and browser clients share the same conversations.
+**The always-there hangout for your small crew.** Gather is a free, open-source chat and voice app with the feel of old Skype, MSN and AIM: one link, your friends are in, you hear when they show up, and calling feels like it used to. No account, email or phone number. Pick a name and go.
 
-[Open Gather](https://gather-friends.max-jacob-hastings.workers.dev/) · [Windows installer](https://gather-friends.max-jacob-hastings.workers.dev/download/windows)
+[**Open Gather in your browser**](https://gather-friends.max-jacob-hastings.workers.dev/) · [Windows installer](https://gather-friends.max-jacob-hastings.workers.dev/download/windows)
 
-## Use it with friends
+## What you get
 
-1. Enter your name. Open chat details and copy the invite link.
-2. Your friend opens the link, enters a name and joins. Chrome and Edge are the tested browsers.
-3. Click **Join voice** and allow the microphone. Four people can join a call.
+- **Group chat** that stays put: history, search, unread markers, replies, edits, reactions, typing indicators, link formatting and per-chat muting.
+- **Voice calls for up to four people**, with mute/deafen, device selection and speaking rings. Ring a friend, or everyone who is online, and they get an incoming-call popup with Join and Decline.
+- **A call stage** that shows everyone as tiles with chat beside it (a tab on narrow windows).
+- **GIFs and emoji**: GIF search (powered by Klipy), a fast searchable emoji picker, and the classic MSN emoticons.
+- **Photos, video, audio and files** up to 10 MB each, four per message, with inline previews.
+- **Sounds** for messages and calls: four synthesized sound packs, or your own files.
+- **Phone-friendly web app** that installs to your home screen, plus a Windows desktop app that updates itself.
+- **Light, dark or system theme**, notifications you control, and export of your history.
 
-Click the chat name for member controls. One owner can remove people, replace the invite or transfer ownership. Anyone can leave. Removal replaces the old invite and disconnects that member’s call; their received history stays read-only on their device.
+## Try it with friends
 
-The Windows download is a per-user installer. Existing portable users should close their old app and install this version once; the normal Gather profile is reused. Installed Windows builds check for updates quietly, verify Gather's signed metadata and installer bytes, and offer an explicit restart when safe. Active calls and transfers defer updates. Windows publisher signing is not configured, so the first installation can show an unknown-publisher/SmartScreen warning. The portable build remains a manual-update option.
+1. Open Gather and enter a name.
+2. Open chat details and copy the invite link.
+3. Your friend opens the link, enters a name and joins.
+4. Click **Join voice** and allow the microphone.
 
-macOS and Linux can use the browser now. Native packaging and synthetic chat/voice tests exist for both Mac architectures and Linux x64; native publisher signing and their update paths remain follow-up work. They are not listed as completed public desktop releases.
+Chrome and Edge are the tested browsers; Safari has basic support. Windows has a per-user installer. macOS and Linux can use the browser today.
 
-## Included in 0.3
+The chat owner can remove people, replace the invite or hand over ownership, and anyone can leave.
 
-- Persistent chat history, per-chat drafts, search-to-message, reading positions, unread markers, export and read-only archive import.
-- Ordered offline sending with retry, pause, safe draft replacement and server-reconciled discard.
-- Recovery codes and device revocation; encrypted desktop credentials backed by the OS credential service.
-- Up to four-person voice, mute/deafen, device selection, speaking indicators and reconnect handling.
-- Any nonempty file up to **10,000,000 bytes**, four per message. Inline images/animated GIFs, video and audio where the browser codec supports them; save-original fallback for other formats.
-- Full EmojiTwo and classic MSN artwork, local recents, larger emoji-only messages, reactions with participant names, reply/copy, editing/deletion, group rename and uploaded profile/group pictures.
-- Clickable HTTP/HTTPS links, basic text formatting and a larger in-app image/GIF viewer.
-- Typing indicators, opt-in running-app notifications, per-chat muting, dark/light/system appearance.
-- Local file budget, explicitly kept originals, clear/remove controls and durable deletion cleanup.
+## How your data is handled
 
-Use **Settings → History & archives**, **Files on this device**, **Appearance**, or **Updates**. Notifications require the app/tab to be running. A kept file is protected from Gather's automatic cache removal; browser/user clearing or device failure can still remove it. Export important history and save originals elsewhere when you need an independent copy.
+Gather's server is a short-lived relay, not an archive. Uploaded files are removed a day after every other member has downloaded them, and otherwise after 30 days (7 days for files of 25 MB or more). Text messages are kept for at least two years. Your devices keep their own copies, so export anything you want to keep long term. The server can read messages, so chat is not end-to-end encrypted. Voice is encrypted in transit by WebRTC and calls are never recorded.
 
-The server is a relay, not long-term storage: uploaded files expire 30 days after upload (7 days at 25 MB or more), the oldest sent files roll off at the per-chat and per-person limits, and text is kept at least two years. Devices keep their own copies. One serialized storage authority reserves all private bucket bytes against a **5,000,000,000-byte ceiling**. At the 5 GB ceiling new file admission stops; chat and voice remain separate. Storage capacity is not a cap on all provider request/relay charges. The server can read messages; chat is not end-to-end encrypted. WebRTC encrypts voice transport and no calls are recorded.
+Each chat and each person has a 250 MB limit; when it is reached the oldest files roll off instead of blocking new uploads.
 
-## Development and checks
+The hosted service has [Terms](https://gather-friends.max-jacob-hastings.workers.dev/terms) and a [Privacy page](https://gather-friends.max-jacob-hastings.workers.dev/privacy). Anyone can report abuse without an account at [/report](https://gather-friends.max-jacob-hastings.workers.dev/report), or use the Report button on a message.
 
-EmojiTwo vectors remain the source artwork in `src/assets/emoji-*.svg`. If refreshing them, rebuild the matching local PNG sheets with `node scripts/build-emoji-atlas.mjs` (uses the test Edge runtime); inventory checks reject missing or duplicate mappings. No runtime image/CDN service is added.
+## Run your own
 
-Requires Node 24+. Install dependencies with `npm ci`, then `npm run dev`. `electron/config.json` chooses the backend. An empty server URL starts a loopback Node/SQLite backend; `npm run server` runs it independently.
+Gather runs on Cloudflare (a Worker, one SQLite Durable Object and an R2 bucket) or as a plain Node server with SQLite and local file storage.
 
 ```sh
-npm run build
-npm test
-npm run dist
-npm run test:release
+git clone https://github.com/MaxHastings/gather-public.git gather
+cd gather
+npm ci
+npm run dev        # starts the app against a local Node/SQLite backend
 ```
 
-`dist` builds Windows installer/portable artifacts and signs update metadata using the ignored local release key. `test:release` exercises unit/server contracts, native/browser persistence, identity/recovery, archives, conversation tools, populated-history interaction measurements, restored-server/client recovery, private media, storage interruption, notifications, offline startup, packaged chat/voice and the portable wrapper. `node scripts/updater-install-smoke.mjs` separately installs and upgrades isolated fixture applications with their own app ID, profile, signing key and loopback feed.
-
-`node scripts/hosted-smoke.mjs http://127.0.0.1:18789` checks a local Wrangler adapter. It can also check an HTTPS deployment; it creates disposable profiles and a separate conversation. `GATHER_HOSTED_RELAY=1` forces relay for that check. Tests use synthetic microphones and actual RTP packets; physical headsets, OS permission prompts and long mixed-network calls still need pilot use.
-
-## Hosting and releases
-
-Cloudflare serves static web assets, a Worker, one SQLite Durable Object and the private R2 media bucket. Voice uses WebRTC with temporary TURN credentials; no LiveKit/media SDK is required. A standalone Node host uses the same domain and SQLite contracts with filesystem object storage.
+Requires Node 24+. To host on Cloudflare, copy `.env.example` to `.env`, fill in the optional TURN and Klipy keys, then:
 
 ```sh
 npm run cloud:login
 npm run cloud:secrets
-npm run release:publish
+npm run cloud:deploy
 ```
 
-Secrets are read from ignored `.env`. The deploy helper uploads only the TURN and operator credentials; backup encryption and update private keys stay local. The release command builds, verifies, prepares chunked static downloads and deploys. A Vite rebuild clears prepared download/update assets: prepare them again before deployment. The public manifest records the installer checksum; `node scripts/check-download.mjs` compares the complete hosted download with the local tested artifact.
+Voice uses WebRTC with temporary TURN credentials for hard networks; no media server or SDK is needed. GIF search needs a free [Klipy](https://klipy.com) key (`KLIPY_API_KEY`); without one the GIF tab is hidden.
 
-Back up before server migrations. [OPERATIONS.md](OPERATIONS.md) covers encrypted snapshots, independent private-repo backup copies, restore, keys and storage accounting. Snapshots include attachment manifests but **not original R2 payloads**; user exports can include locally available originals. No unattended backup schedule is installed. Keep operational encryption keys independently recoverable.
+## Development
 
-Replies/formatting, link previews, provider GIF search, large peer transfers, cloud expiry and friend-assisted history retrieval are follow-up work. Background painting was cancelled.
+```sh
+npm run build          # type-check and bundle
+npm test               # unit and server contract tests
+npm run test:browser   # browser smoke tests
+npm run dist           # Windows installer and portable build
+npm run test:release   # the full release suite
+```
+
+Design and operations notes: [ARCHITECTURE.md](ARCHITECTURE.md), [PRODUCT.md](PRODUCT.md), [OPERATIONS.md](OPERATIONS.md), [RELEASE.md](RELEASE.md) and [CHANGELOG.md](CHANGELOG.md).
+
+## Community and contributing
+
+Questions, bug reports and hello's are welcome in the [Gather Discord](https://discord.gg/J8e4kvndyu). Issues and pull requests are welcome too. Gather is a small project run by one maintainer, so please keep changes focused and run `npm test` first.
 
 ## License and credits
 

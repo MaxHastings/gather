@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy · Gather</title>
+    <meta name="robots" content="index,follow" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f7f9fc;
+        --fg: #18222f;
+        --muted: #5c6b7d;
+        --line: #d9e1ec;
+        --link: #1769aa;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #111821;
+          --fg: #e0e8f2;
+          --muted: #9dadc1;
+          --line: #2a3747;
+          --link: #64bcec;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          16px/1.6 system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+      }
+      main {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 32px 16px 64px;
+      }
+      h1 {
+        font-size: 28px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 28px 0 6px;
+      }
+      p,
+      li {
+        margin: 6px 0;
+      }
+      ul {
+        padding-left: 22px;
+      }
+      a {
+        color: var(--link);
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      nav {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 24px;
+        font-size: 14px;
+      }
+      footer {
+        margin-top: 40px;
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <nav>
+        <a href="/">gather.</a><a href="/terms">Terms</a
+        ><a href="/privacy">Privacy</a>
+      </nav>
+      <h1>Privacy</h1>
+      <p class="muted">Last updated October 25, 2026.</p>
+
+      <h2>The short version</h2>
+      <p>
+        Gather asks for a name and nothing else: no email, phone number or
+        password. We don’t run ads, sell data or track you across the web.
+      </p>
+
+      <h2>What we store</h2>
+      <ul>
+        <li>
+          <strong>Your profile:</strong> the name you pick, an optional picture,
+          and sign-in tokens for your devices.
+        </li>
+        <li>
+          <strong>Your chats:</strong> messages, reactions, files and pictures
+          you send, and which chats you belong to.
+        </li>
+        <li>
+          <strong>Abuse-prevention logs:</strong> the IP address and time for
+          sign-ups, file uploads and reports. These are kept about 90 days, then
+          deleted, and are used only to stop abuse and act on reports.
+        </li>
+        <li>
+          <strong>Reports:</strong> what you report and a short excerpt, kept
+          until the report is handled.
+        </li>
+      </ul>
+
+      <h2>Who can see it</h2>
+      <p>
+        People in a chat can see what is sent there. Chats are
+        <strong>not end-to-end encrypted</strong>, so the person running the
+        service could technically read them, and we will look at content when it
+        is reported or needed to keep the service safe or to meet a legal duty.
+        We may share information with the authorities when the law requires it
+        or to report illegal content.
+      </p>
+
+      <h2>Services we rely on</h2>
+      <ul>
+        <li>
+          <strong>Cloudflare</strong> hosts the app, stores data and files, and
+          relays voice calls when a direct connection isn’t possible. Calls
+          otherwise go directly between friends.
+        </li>
+        <li>
+          <strong>Klipy</strong> powers GIF search. Search words you type are
+          sent to Klipy to fetch results.
+        </li>
+      </ul>
+
+      <h2>How long we keep things</h2>
+      <p>
+        Files are removed from the server after days to weeks (sooner when the
+        service is busy). Messages are kept much longer, and may be removed at
+        any time. Your device also keeps its own copy of chats you’ve seen.
+      </p>
+
+      <h2>Your choices</h2>
+      <p>
+        You can delete your own messages in the app. To have your account or
+        chat data removed, or to ask what we hold, use the report page or
+        Discord link below. Gather isn’t meant for children under 13.
+      </p>
+      <footer class="muted">
+        Questions, reports or takedown requests: use the
+        <a href="/report">report page</a>, the Report button on any message in
+        the app, or ask in our
+        <a href="https://discord.gg/J8e4kvndyu">Discord</a>.
+      </footer>
+    </main>
+  </body>
+</html>

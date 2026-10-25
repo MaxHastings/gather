@@ -30,4 +30,4 @@ Private text groups, invite links, persistent history, and audio calls for two c
 
 Twenty years is a maintenance commitment, not a guarantee provided by a framework. Prefer understandable code, standard HTTP/WebSocket/WebRTC/TURN protocols, SQLite, documented data export, a local development path, and replaceable hosting adapters. Keep product decisions separate from providers. Pin dependencies and review security updates. Maintain and exercise backups and restore procedures before relying on a hosted deployment.
 
-Cloud resources must remain bounded; durable local history, recoverable identity, and verified restore precede destructive retention changes. Example durations and file sizes are adjustable policies, not architectural requirements.
+Product and engineering decisions for subsequent releases follow these principles: Cloud resources must remain bounded; durable local history, recoverable identity, and verified restore precede destructive retention changes. Example durations and file sizes are adjustable policies, not architectural requirements.

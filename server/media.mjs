@@ -30,6 +30,10 @@ export const BIG_FILE_TTL_MS = 7 * DAY;
 export const fileTtl = (bytes) =>
   bytes >= BIG_FILE_BYTES ? BIG_FILE_TTL_MS : FILE_TTL_MS;
 
+// Once every other member has fetched a file, the server copy is redundant.
+// The short grace lets a failed save or a second device still retry.
+export const DELIVERED_GRACE_MS = DAY;
+
 export const mediaMetadata = (row) => ({
   id: row.id,
   name: row.name,
@@ -143,7 +147,7 @@ export function validateMediaBytes(input, type) {
     );
 }
 
-export function createMedia(db, storage, member, authorize) {
+export function createMedia(db, storage, member, authorize, moderation) {
   const uploadsInFlight = new Set();
   const row = (id) =>
     db.prepare("SELECT * FROM media_uploads WHERE id=?").get(id);
@@ -170,7 +174,57 @@ export function createMedia(db, storage, member, authorize) {
             : {}),
         }
       : message;
-  async function handle(method, path, body, user) {
+  // Fair share of the 5 GB pool. Allowances are full size while the pool is
+  // under half used, then shrink toward a small floor by 90% used, so a new
+  // chat or person always has room. If a new file still doesn't fit (or the
+  // pool would be left without breathing room), the oldest files of the
+  // heaviest users go first, never a light user's.
+  const USER_FLOOR_BYTES = 25_000_000;
+  const GROUP_FLOOR_BYTES = 50_000_000;
+  // Test doubles and storage-less servers report no pool, so no pressure.
+  const hasPool = () => typeof storage?.used === "function";
+  const poolPressure = () =>
+    hasPool() ? storage.used() / storage.limitBytes : 0;
+  const fairShare = (limit, floor) => {
+    const pressure = poolPressure();
+    if (pressure <= 0.5) return limit;
+    if (pressure >= 0.9) return Math.min(limit, floor);
+    return Math.max(
+      Math.min(limit, floor),
+      Math.round(limit - ((limit - floor) * (pressure - 0.5)) / 0.4),
+    );
+  };
+  const pressureTtl = (pressure) =>
+    pressure >= 0.85 ? DAY : pressure >= 0.7 ? 3 * DAY : Infinity;
+  async function makePoolRoom(size) {
+    if (!hasPool()) return true;
+    const need = (size) =>
+      storage.limitBytes - storage.used() >=
+      size + Math.round(storage.limitBytes * 0.02);
+    for (;;) {
+      const free = storage.limitBytes - storage.used();
+      const fits = free >= size;
+      if (need(size)) return true;
+      const heaviest = db
+        .prepare(
+          "SELECT u.userId,SUM(u.bytes) AS n FROM media_uploads u JOIN storage_objects s ON s.key=u.key WHERE u.state='committed' AND s.state='ready' GROUP BY u.userId ORDER BY n DESC LIMIT 1",
+        )
+        .get();
+      // Everyone is at or under their floor: keep the breathing room we have
+      // if the file fits. Otherwise the heaviest person still gives up their
+      // oldest file, so a newcomer is never locked out and light users go last.
+      if (!heaviest || (heaviest.n <= USER_FLOOR_BYTES && fits))
+        return Boolean(fits);
+      const oldest = db
+        .prepare(
+          "SELECT u.key FROM media_uploads u JOIN storage_objects s ON s.key=u.key WHERE u.userId=? AND u.state='committed' AND s.state='ready' ORDER BY u.createdAt LIMIT 1",
+        )
+        .get(heaviest.userId);
+      if (!oldest) return fits;
+      await storage.remove(oldest.key);
+    }
+  }
+  async function handle(method, path, body, user, context = {}) {
     const prepare = path.match(/^\/api\/groups\/([^/]+)\/uploads$/);
     if (prepare && method === "POST") {
       const groupId = prepare[1];
@@ -204,6 +258,14 @@ export function createMedia(db, storage, member, authorize) {
           fail(410, "This upload was cancelled.");
         return { ...mediaMetadata(upload), state: upload.state };
       }
+      // Per-person daily allowance and a global daily ceiling; both pause
+      // sharing instead of letting a stranger (or a bot) run up the bill.
+      const logUpload = moderation?.admitUpload(
+        user.id,
+        body.bytes,
+        groupId,
+        context.ip,
+      );
       // Bound unfinished work per identity, separately from the shared byte cap.
       if (
         db
@@ -235,15 +297,31 @@ export function createMedia(db, storage, member, authorize) {
         }
         return true;
       };
-      if (!(await makeRoom("groupId", groupId, storage.groupLimitBytes)))
+      // Allowances shrink as the shared pool fills so one crowd of heavy
+      // users can't squeeze everyone else out (see fairShare below).
+      if (
+        !(await makeRoom(
+          "groupId",
+          groupId,
+          fairShare(storage.groupLimitBytes, GROUP_FLOOR_BYTES),
+        ))
+      )
         fail(
           507,
-          `This chat has used its ${Math.round(storage.groupLimitBytes / 1e6)} MB of shared file space. Text, emoji and voice still work.`,
+          `This chat has used up its shared file space. Text, emoji and voice still work.`,
         );
-      if (!(await makeRoom("userId", user.id, storage.userLimitBytes)))
+      if (
+        !(await makeRoom(
+          "userId",
+          user.id,
+          fairShare(storage.userLimitBytes, USER_FLOOR_BYTES),
+        ))
+      )
+        fail(507, `You have reached your file-sharing allowance for now.`);
+      if (!(await makePoolRoom(body.bytes)))
         fail(
           507,
-          `You have reached your ${Math.round(storage.userLimitBytes / 1e6)} MB file-sharing allowance.`,
+          "File space is full right now. Text, emoji and voice still work; try again later.",
         );
       const key = `objects/${body.id}`;
       await storage.reserve(body.bytes, body.sha256, key);
@@ -283,6 +361,7 @@ export function createMedia(db, storage, member, authorize) {
         )
           fail(409, "That upload ID was already used.");
       });
+      logUpload?.();
       return { ...mediaMetadata(row(body.id)), state: row(body.id).state };
     }
     const match = path.match(/^\/api\/uploads\/([^/]+)(\/cancel)?$/);
@@ -462,6 +541,11 @@ export function createMedia(db, storage, member, authorize) {
         createHash("sha256").update(bytes).digest("hex") !== upload.sha256
       )
         fail(503, "This file could not be verified. Please try again.");
+      // A completed read by another member counts as delivery.
+      if (user.id !== upload.userId && end === upload.bytes - 1)
+        db.prepare(
+          "INSERT INTO media_fetches VALUES (?,?,?) ON CONFLICT(uploadId,userId) DO UPDATE SET fetchedAt=excluded.fetchedAt",
+        ).run(upload.id, user.id, Date.now());
       return new Response(bytes.subarray(start, end + 1), { status, headers });
     }
     fail(405, "This file action is not supported.");
@@ -498,13 +582,18 @@ export function createMedia(db, storage, member, authorize) {
       let expired = 0,
         pending = 0,
         more = false;
+      // When the pool is filling up, files are dropped sooner. Busy days cost
+      // people their old files, never their ability to share new ones.
+      const pressure = poolPressure();
+      const ceiling = pressureTtl(pressure);
       const rows = db
         .prepare(
           "SELECT u.id,u.key,u.bytes,u.createdAt FROM media_uploads u JOIN storage_objects s ON s.key=u.key WHERE u.state='committed' AND s.state='ready' AND u.createdAt<? ORDER BY u.createdAt LIMIT 100",
         )
-        .all(now - BIG_FILE_TTL_MS);
+        .all(now - Math.min(BIG_FILE_TTL_MS, ceiling));
       for (const item of rows) {
-        if (now - item.createdAt < fileTtl(item.bytes)) continue;
+        if (now - item.createdAt < Math.min(fileTtl(item.bytes), ceiling))
+          continue;
         try {
           await storage.remove(item.key);
           expired++;
@@ -513,6 +602,27 @@ export function createMedia(db, storage, member, authorize) {
         }
       }
       more = rows.length === 100;
+      // Delivered to every other current member and past the grace period.
+      const delivered = db
+        .prepare(
+          `SELECT u.key FROM media_uploads u JOIN storage_objects s ON s.key=u.key
+           WHERE u.state='committed' AND s.state='ready'
+           AND EXISTS(SELECT 1 FROM memberships m WHERE m.groupId=u.groupId AND m.userId<>u.userId)
+           AND NOT EXISTS(SELECT 1 FROM memberships m WHERE m.groupId=u.groupId AND m.userId<>u.userId
+             AND NOT EXISTS(SELECT 1 FROM media_fetches f WHERE f.uploadId=u.id AND f.userId=m.userId))
+           AND (SELECT MAX(f.fetchedAt) FROM media_fetches f WHERE f.uploadId=u.id)<?
+           LIMIT 100`,
+        )
+        .all(now - DELIVERED_GRACE_MS);
+      for (const item of delivered) {
+        try {
+          await storage.remove(item.key);
+          expired++;
+        } catch {
+          pending++;
+        }
+      }
+      more = more || delivered.length === 100;
       return { expired, pending, more };
     },
     request,

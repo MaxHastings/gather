@@ -29,6 +29,7 @@ export type RowActions = {
   react: (m: Message, emoji: string, active: boolean) => Promise<void>;
   edit: (m: Message, body: string, revision: number) => Promise<void>;
   deleteMessage: (m: Message) => Promise<void>;
+  report: (m: Message, reason: string, detail: string) => Promise<void>;
   retry: (m: Message) => Promise<void>;
   reply: (m: Message) => void;
   jump: (groupId: string, id: string) => void;
@@ -187,6 +188,11 @@ export const MessageRow = memo(function MessageRow({
               online={online}
               onEdit={(body, revision) => actions.edit(m, body, revision)}
               onDelete={() => actions.deleteMessage(m)}
+              onReport={
+                !own && !readOnly
+                  ? (reason, detail) => actions.report(m, reason, detail)
+                  : undefined
+              }
             />
           )}
           {m.status ? (

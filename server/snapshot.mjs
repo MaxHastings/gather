@@ -4,12 +4,18 @@ const transient = new Set([
   "connections",
   "voices",
   "request_limits",
+  "daily_limits",
+  // Short-lived IP log for abuse follow-up; kept out of backups on purpose.
+  "activity_log",
 ]);
 const identifier = (name) => {
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name))
     throw new Error("Unsupported snapshot table or column name.");
   return `"${name}"`;
 };
+// Derived tables added without a numbered migration. Backups taken before they
+// existed are still restorable; the table simply starts empty.
+const optionalTables = new Set(["media_fetches"]);
 function tables(db) {
   return (
     db
@@ -74,9 +80,14 @@ export function restoreSnapshot(db, snapshot) {
     throw new Error("Unsupported snapshot format.");
   const expected = tables(db);
   const supplied = snapshot.tables.map((table) => table.name);
+  const required = (names) => names.filter((name) => !optionalTables.has(name));
   if (
     new Set(supplied).size !== supplied.length ||
-    JSON.stringify([...supplied].sort()) !== JSON.stringify(expected)
+    supplied.some(
+      (name) => optionalTables.has(name) && !expected.includes(name),
+    ) ||
+    JSON.stringify(required([...supplied].sort())) !==
+      JSON.stringify(required(expected))
   )
     throw new Error("Snapshot schema does not match this server version.");
   for (const name of expected.filter(

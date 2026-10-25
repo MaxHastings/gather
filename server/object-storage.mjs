@@ -287,8 +287,10 @@ export function createObjectStorage(
     return object;
   }
   return {
+    limitBytes,
     groupLimitBytes,
     userLimitBytes,
+    used: total,
     initialize,
     status,
     put,

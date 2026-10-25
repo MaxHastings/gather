@@ -1,5 +1,12 @@
 import { useCallback, useRef, useState } from "react";
-import { MoreHorizontal, Pencil, Trash2, Copy, Reply } from "lucide-react";
+import {
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Copy,
+  Reply,
+  Flag,
+} from "lucide-react";
 import type { Message } from "./types";
 import { useDismissable } from "./useDismissable";
 export function MessageActions({
@@ -10,6 +17,7 @@ export function MessageActions({
   onDelete,
   canEdit = true,
   onReply,
+  onReport,
 }: {
   message: Message;
   scope: string;
@@ -18,10 +26,14 @@ export function MessageActions({
   onDelete: () => Promise<void>;
   canEdit?: boolean;
   onReply?: () => void;
+  onReport?: (reason: string, detail: string) => Promise<void>;
 }) {
   const [menu, setMenu] = useState(false),
     [editing, setEditing] = useState(false),
     [deleting, setDeleting] = useState(false),
+    [reporting, setReporting] = useState(false),
+    [reason, setReason] = useState("illegal"),
+    [sent, setSent] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [text, setText] = useState(""),
@@ -36,15 +48,16 @@ export function MessageActions({
     } catch {}
     setEditing(false);
     setDeleting(false);
+    setReporting(false);
     setError("");
   };
   if (message.deletedAt && !editing) return null;
   return (
     <div
       ref={root}
-      className={`message-actions${editing || deleting || error ? " expanded" : ""}`}
+      className={`message-actions${editing || deleting || reporting || error ? " expanded" : ""}`}
     >
-      {!editing && !deleting && (
+      {!editing && !deleting && !reporting && (
         <button
           className="icon-button message-more"
           aria-label="Message actions"
@@ -81,6 +94,19 @@ export function MessageActions({
             >
               <Reply size={14} />
               Reply
+            </button>
+          )}
+          {onReport && (
+            <button
+              onClick={() => {
+                setMenu(false);
+                setReporting(true);
+                setSent(false);
+                setError("");
+              }}
+            >
+              <Flag size={14} />
+              Report
             </button>
           )}
           {canEdit && (
@@ -218,6 +244,59 @@ export function MessageActions({
             </p>
           )}
         </form>
+      )}
+      {reporting && onReport && (
+        <div className="message-delete-confirm">
+          {sent ? (
+            <>
+              <span>Thanks. The Gather team will take a look.</span>
+              <button className="text-button" onClick={clear}>
+                Close
+              </button>
+            </>
+          ) : (
+            <>
+              <label
+                className="visually-hidden"
+                htmlFor={`report-${message.id}`}
+              >
+                Reason for report
+              </label>
+              <select
+                id={`report-${message.id}`}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              >
+                <option value="illegal">Illegal or harmful content</option>
+                <option value="abuse">Harassment or abuse</option>
+                <option value="spam">Spam</option>
+                <option value="other">Something else</option>
+              </select>
+              <button className="text-button" disabled={busy} onClick={clear}>
+                Cancel
+              </button>
+              <button
+                className="text-button danger-text"
+                disabled={busy || !online}
+                onClick={async () => {
+                  setBusy(true);
+                  setError("");
+                  try {
+                    await onReport(reason, "");
+                    setSent(true);
+                  } catch (failure) {
+                    setError((failure as Error).message);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {busy ? "Sending…" : "Send report"}
+              </button>
+              {!online && <span>Reconnect to report.</span>}
+            </>
+          )}
+        </div>
       )}
       {deleting && (
         <div className="message-delete-confirm">

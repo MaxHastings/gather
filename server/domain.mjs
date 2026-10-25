@@ -9,6 +9,7 @@ import { captureSnapshot } from "./snapshot.mjs";
 import { LATEST_SCHEMA_VERSION } from "./schema.mjs";
 import { MAX_VOICE_PARTICIPANTS, VOICE_TOPOLOGY } from "./voice-policy.mjs";
 import { createMedia } from "./media.mjs";
+import { createModeration } from "./moderation.mjs";
 import { createAvatars } from "./avatars.mjs";
 import { createGifService } from "./gifs.mjs";
 import { isReactionEmoji } from "./emoji-policy.mjs";
@@ -104,7 +105,27 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
   };
   const messageSelect =
     "SELECT m.*,u.name,COALESCE((SELECT MAX(sequence) FROM message_changes WHERE messageId=m.id),0) AS revision,COALESCE((SELECT MAX(sequence) FROM message_changes WHERE messageId=m.id AND kind IN ('create','edit','delete')),0) AS contentRevision FROM messages m JOIN users u ON m.userId=u.id";
-  const media = createMedia(db, services.objectStorage, member, authorize);
+  const moderation = createModeration({
+    db,
+    storage: services.objectStorage,
+    problem,
+    member,
+    loadMessage: (id) =>
+      enrich(db.prepare(`${messageSelect} WHERE m.id=?`).get(id)),
+    emitGroup,
+    events,
+    revokeSession,
+    stateFor: (...args) => stateFor(...args),
+    broadcastVoice: (...args) => broadcastVoice(...args),
+    changedGroup: (...args) => changedGroup(...args),
+  });
+  const media = createMedia(
+    db,
+    services.objectStorage,
+    member,
+    authorize,
+    moderation,
+  );
   const avatars = createAvatars(
     db,
     services.objectStorage,
@@ -672,6 +693,7 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
     body = {},
     token,
     query = new URLSearchParams(),
+    context = {},
   ) {
     if (method === "GET" && path === "/api/health")
       return {
@@ -711,6 +733,26 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
         return services.objectStorage.status();
       if (method === "POST" && path === "/api/admin/media-expire")
         return media.expireFiles();
+      if (method === "GET" && path === "/api/admin/reports")
+        return {
+          reports: moderation.listReports(query.get("status") ?? "open"),
+        };
+      if (method === "POST" && path === "/api/admin/reports/resolve")
+        return moderation.resolveReport(body.id, body.status);
+      if (method === "POST" && path === "/api/admin/remove-message")
+        return moderation.removeMessage(body.messageId);
+      if (method === "POST" && path === "/api/admin/remove-file")
+        return moderation.removeFile(body.uploadId);
+      if (method === "POST" && path === "/api/admin/remove-group")
+        return moderation.removeGroup(body.groupId);
+      if (method === "POST" && path === "/api/admin/ban")
+        return moderation.banUser(body.userId, body);
+      if (method === "POST" && path === "/api/admin/unban")
+        return moderation.unbanUser(body.userId);
+      if (method === "GET" && path === "/api/admin/limits")
+        return moderation.limits();
+      if (method === "POST" && path === "/api/admin/limits")
+        return moderation.setLimits(body);
       if (method === "POST" && path === "/api/admin/media-cleanup")
         return media.cleanupCancelled();
       if (method === "GET" && path === "/api/admin/diagnostics")
@@ -762,6 +804,8 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
           .get(g.id).n,
       };
     }
+    if (method === "POST" && path === "/api/public-reports")
+      return moderation.publicReport(body, context.ip);
     if (method === "POST" && path === "/api/sessions") {
       const name = clean(body.name, "Your name", 32);
       const label = deviceLabel(body);
@@ -779,6 +823,7 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
             "That invite was not found. Double-check it with your friend.",
           );
       }
+      moderation.admitSignup({ newGroup: !existing, ip: context.ip });
       const user = { id: randomUUID(), name };
       const token = randomBytes(32).toString("base64url");
       db.transaction(() => {
@@ -790,11 +835,14 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
         addSession(token, user.id, label);
         if (existing) addMember(existing.id, user.id);
         else makeGroup("The usual crew", user.id);
+        moderation.log("signup", context.ip, { userId: user.id });
       });
       if (existing) changedGroup(existing.id);
       return { token, user };
     }
     if (method === "POST" && path === "/api/recover") {
+      if (moderation.isBlocked(context.ip))
+        throw problem(403, "This connection can’t use Gather right now.");
       if (
         typeof body.code !== "string" ||
         !/^gather_[A-Za-z0-9_-]{43}$/.test(body.code.trim())
@@ -858,7 +906,9 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
         voiceLimit: MAX_VOICE_PARTICIPANTS,
         capabilities: availableCapabilities,
       };
-    const mediaResult = await media.handle(method, path, body, user);
+    if (method === "POST" && path === "/api/reports")
+      return moderation.report(user, body, context.ip);
+    const mediaResult = await media.handle(method, path, body, user, context);
     if (mediaResult !== undefined) return mediaResult;
     if (method === "GET" && /^\/api\/gifs\/(search|trending)$/.test(path))
       return gifs.request(user.id, path.split("/").at(-1), query);
@@ -1176,6 +1226,18 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
       const name = clean(body.name, "Chat name", 48);
       if (groupIds(user.id).length >= 50)
         throw problem(400, "You can have up to 50 chats.");
+      if (
+        db
+          .prepare(
+            "SELECT COUNT(*) n FROM group_controls c JOIN groups g ON g.id=c.groupId WHERE c.ownerId=? AND g.createdAt>?",
+          )
+          .get(user.id, Date.now() - 86_400_000).n >= 5
+      )
+        throw problem(
+          429,
+          "You’ve started a lot of chats today. Try again tomorrow.",
+        );
+      moderation.admitGroup();
       return changedGroup(db.transaction(() => makeGroup(name, user.id)).id);
     }
     if (method === "POST" && path === "/api/groups/join") {
@@ -1304,6 +1366,13 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
         return m;
       }
       if (action === "ice" && method === "POST") {
+        // Past the daily relay budget (or with the switch off) calls fall back
+        // to direct connections, which are free.
+        if (!moderation.relayAllowed(user.id, context.ip))
+          return {
+            iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }],
+            relayAvailable: false,
+          };
         if (env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN) {
           const r = await fetch(
             `https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(env.TURN_KEY_ID)}/credentials/generate-ice-servers`,
@@ -1399,7 +1468,10 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
     claimTicket,
     realtimeOpen,
     realtimeClose,
-    expireFiles: (now) => media.expireFiles(now),
+    expireFiles: (now) => {
+      moderation.pruneLog(now);
+      return media.expireFiles(now);
+    },
     realtimeMessage,
     stateFor,
     voicePeers,

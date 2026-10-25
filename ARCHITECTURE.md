@@ -50,4 +50,4 @@ Server credentials, independent backups, identity recovery, verified updates, an
 
 ## Planned evolution
 
-Local archives, private sharing, recovery and Windows updates now have implementations; cloud expiry and friend-assisted recovery remain deferred. Cloud cleanup stays disabled.
+The long-term direction is: local archives, private sharing, recovery and Windows updates now have implementations; cloud expiry and friend-assisted recovery remain deferred. Cloud cleanup stays disabled.

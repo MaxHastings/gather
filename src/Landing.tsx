@@ -80,6 +80,10 @@ export function Landing({
           <DesktopDownloads onDownload={() => {}} />
         </div>
       </section>
+      <footer className="landing-legal">
+        <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> ·{" "}
+        <a href="/report">Report a problem</a>
+      </footer>
     </main>
   );
 }

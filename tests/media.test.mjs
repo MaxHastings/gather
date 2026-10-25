@@ -324,3 +324,66 @@ test("old sent files roll off at the chat limit and expire by age while messages
     .body;
   assert.ok(JSON.stringify(history).includes("pic"));
 });
+test("a file is removed from the server once every other member has fetched it", async (t) => {
+  const dataDir = await mkdtemp(join(tmpdir(), "gather-delivered-"));
+  const server = createGatherServer({ dataDir });
+  const address = await server.listen(0);
+  const base = `http://127.0.0.1:${address.port}`;
+  t.after(async () => {
+    await server.close();
+    await rm(dataDir, { recursive: true, force: true });
+  });
+  const api = async (path, token, body) => {
+    const response = await fetch(base + path, {
+      method: body ? "POST" : "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    return { status: response.status, body: await response.json() };
+  };
+  const person = async (name) =>
+    (await api("/api/sessions", null, { name })).body;
+  const alice = await person("Alice");
+  const bob = await person("Bob");
+  const cara = await person("Cara");
+  const group = (await api("/api/bootstrap", alice.token)).body.groups[0];
+  await api("/api/groups/join", bob.token, { code: group.inviteCode });
+  await api("/api/groups/join", cara.token, { code: group.inviteCode });
+  const id = randomUUID();
+  await api(`/api/groups/${group.id}/uploads`, alice.token, {
+    id,
+    name: "p.png",
+    type: "image/png",
+    bytes: png.length,
+    sha256: sha256(png),
+  });
+  await fetch(`${base}/api/uploads/${id}/content`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${alice.token}`,
+      "Content-Type": "application/octet-stream",
+    },
+    body: png,
+  });
+  await api(`/api/groups/${group.id}/messages`, alice.token, {
+    clientId: randomUUID(),
+    body: "pic",
+    attachmentIds: [id],
+  });
+  const get = (token) =>
+    fetch(`${base}/api/attachments/${id}/content`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  const week = Date.now() + 2 * 86_400_000;
+  assert.equal((await get(bob.token)).status, 200);
+  // Cara has not fetched it yet, so it stays.
+  assert.equal((await server.domain.expireFiles(week)).expired, 0);
+  assert.equal((await get(cara.token)).status, 200);
+  // Everyone has it, but the grace period has not passed.
+  assert.equal((await server.domain.expireFiles()).expired, 0);
+  assert.equal((await server.domain.expireFiles(week)).expired, 1);
+  assert.equal((await get(bob.token)).status, 410);
+});

@@ -1,6 +1,6 @@
 # Gather operations
 
-Operational backup support is available during roadmap execution. 
+Operational backup support is available during roadmap execution.
 
 Version 0.2 update: private attachment writes, profile/group pictures and the storage-status endpoint are live. Historical setup notes below that say “source-only” or “no media” describe the earlier 0.1.2 deployment. Snapshots now include media/avatar manifests, reservations, reactions and deletion state, but **not R2 original payloads**. A database snapshot alone cannot restore lost R2 files. Portable user archives can include available originals (100 MB total file limit; 20 MB text/metadata); import is a separate read-only copy, not identity recovery. Native/browser local file controls protect pending and explicitly kept originals; complete archive import staging remains follow-up work.
 
@@ -111,3 +111,59 @@ Recovery coverage:
 For unattended snapshots, use one consistent encrypted snapshot job with a single-flight lock, bounded generations/byte budget, atomic publish, decryption/restore verification, an externally visible last-success timestamp and alerts for missed runs. Keep the last verified good generation when a run fails. Activate only after independent key recovery and destination/retention budgets are settled; no schedule is installed by 0.3. Source control is not a substitute for those keys or original media.
 
 A restore also rewinds authorization and deletion records to the snapshot. Review known later removals, revoked devices and deletions before traffic cutover; an older snapshot cannot reconstruct changes absent from every surviving copy. The generation boundary protects client synchronization and sending, not an unknown post-snapshot audit trail.
+
+## Public launch safety (0.5)
+
+Gather is open to anyone and anonymous, so the protections are automatic and the operator tools are small.
+
+### Reports and moderation
+
+Anyone in a chat can press **Report** on another person's message. The report keeps a short excerpt (so it still exists if the message is later deleted) and the file's name. Reports are limited to 20 per person per day.
+
+```powershell
+node scripts/moderate.mjs reports                     # open reports, with the sender's sign-up/upload IPs
+node scripts/moderate.mjs remove-message <messageId>  # blank a message and delete its files
+node scripts/moderate.mjs remove-file <uploadId>      # delete just the file
+node scripts/moderate.mjs ban <userId> --purge --block-ip some reason
+node scripts/moderate.mjs remove-group <groupId>      # blank everything, remove everyone, kill the invite link
+node scripts/moderate.mjs resolve <reportId> actioned # or dismissed
+```
+
+A ban ends every device of that person, deletes their recovery code and (with `--purge`) removes their messages and files; `--block-ip` also blocks the addresses they signed up from. Unban with `unban`. Removal tools are operator-only (the same token as backups).
+
+### Automatic limits
+
+- Sign-ups: 5 a minute and 25 a day per IP; globally 2,000 new people a day and 6,000 total, 3,000 chats. At a ceiling, sign-ups pause with a friendly message; existing people keep chatting.
+- Files: a new account may share 10 files / 50 MB in its first day (60 files / 200 MB afterwards). A daily global file ceiling (6,000) pauses heavy sharers first; everyone's first two files a day still go through. A person can start 5 chats a day.
+- Voice relay (TURN): 40 relay credentials per person and 1,500 in total per day. Beyond that calls use direct connections only (free) and still work for most people.
+- Change any ceiling without a deploy: `node scripts/moderate.mjs limits signupsPerDay=500 relay=false` (run `limits` alone to see them all).
+
+### Storage policy for the 5 GB pool
+
+1. Per-chat (250 MB) and per-person (250 MB) allowances shrink as the pool fills: full size below 50% used, falling to 50 MB per chat and 25 MB per person by 90%.
+2. If a new file still does not fit, or the pool would have less than 2% headroom, the oldest files of the **heaviest person** are dropped first. A newcomer is never locked out; light users lose files last.
+3. Files expire after 30 days (7 for files of 25 MB or more); at 70% used that becomes 3 days, at 85% one day. Text is not touched.
+
+`tests/safety.test.mjs` simulates 1,200 newcomers plus hoarders and abusive accounts and asserts the pool never passes its cap and every newcomer's first file is accepted.
+
+### Logs
+
+Sign-ups, uploads and reports log IP and time (table `activity_log`, deleted after 90 days, excluded from backups). Nothing else is logged. TURN credential counts live in the same table and are deleted after two days.
+
+### Billing alerts and hard stops (Cloudflare dashboard)
+
+Code caps R2 storage and the TURN/sign-up/upload rates above, but Cloudflare bills on usage, so also set an alert:
+
+1. Cloudflare dashboard → **Notifications** → **Add** → choose the **Billing / usage-based billing** notification and set a threshold you are comfortable with (for example $10 and $25), delivered to your email.
+2. Dashboard → **Realtime → TURN** (or **Calls**): TURN is free for the first 1,000 GB a month, then billed per GB. There is no built-in spending cap; if usage ever looks wrong, **revoke or disable the TURN key** there, or run `node scripts/moderate.mjs limits relay=false` to stop handing out relay credentials right away.
+3. Workers paid plan includes 10 million requests a month; per-IP limits and sign-up ceilings keep a flood from reaching that cheaply. Check **Workers & Pages → gather-friends → Metrics** after any viral moment.
+
+### If someone reports child sexual abuse material (CSAM) or other illegal content
+
+This is operational guidance, not legal advice; please read the linked sources and ask a lawyer when you can.
+
+- In the US, a service that becomes aware of apparent CSAM must report it to the NCMEC CyberTipline (report.cybertip.org) and preserve what it reported (currently one year). Do not forward, copy or keep the images anywhere else, and do not investigate beyond what a report needs.
+- Order: save the report (`reports` output, including excerpt and IPs), **file the CyberTipline report first**, then remove the content and ban the person. Removing first can destroy evidence you are required to keep.
+- For copyright complaints, register a free-to-cheap DMCA agent with the US Copyright Office and honour takedown notices promptly. The MSN art is the likeliest item to attract one.
+- Keep answering law-enforcement requests through the Discord link on the Terms page (or the report page), and keep a short log of what you did and when.
+- Section 230 and the Terms protect you only if you act on reports quickly. Check the report list at least daily while the site is public.

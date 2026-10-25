@@ -3719,3 +3719,19 @@ label .optional {
     overflow-y: auto;
   }
 }
+
+.landing-legal {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 24px 16px 40px;
+}
+.landing-legal a,
+.legal-note a {
+  color: inherit;
+}
+.legal-note {
+  font-size: 12px;
+  margin: 8px 0 0;
+  text-align: center;
+}

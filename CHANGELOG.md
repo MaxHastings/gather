@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A file is removed from the server one day after every other member of the chat has downloaded it (the 30-day / 7-day limits still apply to files someone never fetches). Devices keep their local copies. Delivery is tracked per person, so a second device of the same person may find the file already gone.
 - Retention policy: the server is a relay, not an archive. Files are removed from the server 30 days after upload (7 days for files of 25 MB or more); the message stays and the file shows as expired, and devices keep what they already received. At the 250 MB chat or person limit, the oldest sent files roll off instead of blocking uploads. Text is kept at least two years. Retention constants live in `server/media.mjs`.
 
 ## 0.4.0
@@ -57,3 +58,7 @@
 ## 0.1.0
 
 - Initial desktop and browser MVP: private text chats, invites, and two-person WebRTC voice calls with TURN fallback.
+
+## Unreleased
+
+- Public-launch safety: Report on messages, operator `scripts/moderate.mjs` (remove message/file/chat, ban with optional purge and IP block), Terms and Privacy pages, fair-share file pool that shrinks allowances and drops the heaviest people's oldest files first, sooner file expiry under pressure, daily per-IP sign-up and per-person upload limits, relay credential budget, and global sign-up/chat ceilings that pause growth instead of billing. Schema 11.

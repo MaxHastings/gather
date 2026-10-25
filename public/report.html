@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Report a problem · Gather</title>
+    <meta name="robots" content="index,follow" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f7f9fc;
+        --fg: #18222f;
+        --muted: #5c6b7d;
+        --line: #d9e1ec;
+        --link: #1769aa;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #111821;
+          --fg: #e0e8f2;
+          --muted: #9dadc1;
+          --line: #2a3747;
+          --link: #64bcec;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          16px/1.6 system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+      }
+      main {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 32px 16px 64px;
+      }
+      h1 {
+        font-size: 28px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 28px 0 6px;
+      }
+      p,
+      li {
+        margin: 6px 0;
+      }
+      ul {
+        padding-left: 22px;
+      }
+      a {
+        color: var(--link);
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      nav {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 24px;
+        font-size: 14px;
+      }
+      footer {
+        margin-top: 40px;
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+      form {
+        display: grid;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      label {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      input,
+      select,
+      textarea,
+      button {
+        font: inherit;
+        color: var(--fg);
+        background: transparent;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+      }
+      textarea {
+        min-height: 120px;
+      }
+      button {
+        background: var(--link);
+        color: #fff;
+        border: 0;
+        cursor: pointer;
+      }
+      button[disabled] {
+        opacity: 0.6;
+      }
+      #note {
+        min-height: 1.4em;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <nav>
+        <a href="/">gather.</a><a href="/terms">Terms</a
+        ><a href="/privacy">Privacy</a>
+      </nav>
+      <h1>Report a problem</h1>
+      <p class="muted">
+        Seen something illegal, harmful or abusive on Gather? Tell us here. You
+        don’t need an account. If it’s in a chat you’re in, the Report button on
+        the message is even faster.
+      </p>
+      <form id="form">
+        <label for="reason">What kind of problem?</label>
+        <select id="reason">
+          <option value="illegal">Illegal or harmful content</option>
+          <option value="abuse">Harassment or abuse</option>
+          <option value="spam">Spam</option>
+          <option value="other">Something else (including copyright)</option>
+        </select>
+        <label for="where"
+          >Where? (chat name, person’s name, link — anything that helps us find
+          it)</label
+        >
+        <input id="where" maxlength="300" />
+        <label for="detail">What happened?</label>
+        <textarea id="detail" maxlength="2000" required></textarea>
+        <label for="contact">How can we reach you? (optional)</label>
+        <input id="contact" maxlength="200" autocomplete="off" />
+        <button id="send">Send report</button>
+        <p id="note" role="status"></p>
+      </form>
+      <p class="muted">
+        Please don’t paste or upload the illegal material itself. Describe it
+        and where to find it. Prefer to talk to a person? Join our
+        <a href="https://discord.gg/J8e4kvndyu">Discord</a>.
+      </p>
+      <script>
+        document
+          .getElementById("form")
+          .addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const note = document.getElementById("note"),
+              send = document.getElementById("send");
+            send.disabled = true;
+            note.textContent = "Sending…";
+            try {
+              const response = await fetch("/api/public-reports", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  reason: document.getElementById("reason").value,
+                  where: document.getElementById("where").value,
+                  detail: document.getElementById("detail").value,
+                  contact: document.getElementById("contact").value,
+                }),
+              });
+              const data = await response.json().catch(() => ({}));
+              if (!response.ok)
+                throw new Error(
+                  data.error || "That didn’t go through. Please try again.",
+                );
+              note.textContent =
+                "Thank you. Your report was sent and will be looked at.";
+              document.getElementById("form").reset();
+            } catch (error) {
+              note.textContent = error.message;
+            }
+            send.disabled = false;
+          });
+      </script>
+      <footer class="muted">
+        <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a>
+      </footer>
+    </main>
+  </body>
+</html>

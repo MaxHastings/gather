@@ -167,6 +167,7 @@ export function createGatherServer(config = {}) {
           req.body ?? {},
           req.headers.authorization?.replace(/^Bearer /, ""),
           new URL(req.originalUrl, "http://local").searchParams,
+          { ip: req.ip },
         ),
       );
     } catch (error) {
@@ -251,6 +252,9 @@ export function createGatherServer(config = {}) {
       void sendDownload(req, res, next, "windows-x64", req.params.filename);
     });
     app.use(express.static(dist, { index: false }));
+    app.get(["/terms", "/privacy", "/report"], (req, res) =>
+      res.sendFile(join(dist, `${req.path.slice(1)}.html`)),
+    );
     app.get(["/", "/join/:code"], (_req, res) =>
       res.sendFile(join(dist, "index.html")),
     );

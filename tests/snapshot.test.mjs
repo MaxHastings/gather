@@ -180,3 +180,21 @@ test("snapshot restore rejects unsupported schemas and broken references atomica
     1,
   );
 });
+test("a backup taken before the delivery table existed still restores", async (t) => {
+  const dataDir = await mkdtemp(join(tmpdir(), "gather-oldbackup-"));
+  const server = createGatherServer({ dataDir });
+  t.after(async () => {
+    await server.close();
+    await rm(dataDir, { recursive: true, force: true });
+  });
+  const snapshot = captureSnapshot(sqliteAdapter(server.db));
+  snapshot.tables = snapshot.tables.filter(
+    (table) => table.name !== "media_fetches",
+  );
+  const restored = restoreDatabase(snapshot);
+  t.after(() => restored.close());
+  assert.equal(
+    restored.prepare("SELECT COUNT(*) AS n FROM media_fetches").get().n,
+    0,
+  );
+});

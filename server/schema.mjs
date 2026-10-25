@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS memberships (groupId TEXT NOT NULL REFERENCES groups(
 CREATE TABLE IF NOT EXISTS messages (sequence INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT UNIQUE NOT NULL,clientId TEXT NOT NULL,groupId TEXT NOT NULL REFERENCES groups(id),userId TEXT NOT NULL REFERENCES users(id),body TEXT NOT NULL,createdAt INTEGER NOT NULL,UNIQUE(userId,clientId));
 CREATE INDEX IF NOT EXISTS messages_group_sequence ON messages(groupId,sequence);
 CREATE INDEX IF NOT EXISTS memberships_user ON memberships(userId);
+CREATE TABLE IF NOT EXISTS media_fetches (uploadId TEXT NOT NULL,userId TEXT NOT NULL,fetchedAt INTEGER NOT NULL,PRIMARY KEY(uploadId,userId));
 CREATE TABLE IF NOT EXISTS tickets (hash TEXT PRIMARY KEY,tokenHash TEXT NOT NULL REFERENCES sessions(tokenHash) ON DELETE CASCADE,expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS connections (id TEXT PRIMARY KEY,userId TEXT NOT NULL REFERENCES users(id),tokenHash TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS voices (connectionId TEXT PRIMARY KEY REFERENCES connections(id) ON DELETE CASCADE,groupId TEXT NOT NULL REFERENCES groups(id),muted INTEGER NOT NULL DEFAULT 0);
@@ -88,8 +89,19 @@ const migrations = new Map([
     INSERT INTO server_state VALUES ('generation',lower(hex(randomblob(16))));
   `,
   ],
+  [
+    11,
+    `
+    CREATE TABLE reports (id TEXT PRIMARY KEY,reporterId TEXT,groupId TEXT,contact TEXT NOT NULL DEFAULT '',messageId TEXT,uploadId TEXT,targetUserId TEXT,reason TEXT NOT NULL,detail TEXT NOT NULL,excerpt TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('open','actioned','dismissed')),createdAt INTEGER NOT NULL);
+    CREATE INDEX reports_status ON reports(status,createdAt);
+    CREATE TABLE bans (userId TEXT PRIMARY KEY REFERENCES users(id),reason TEXT NOT NULL,createdAt INTEGER NOT NULL);
+    CREATE TABLE activity_log (id INTEGER PRIMARY KEY,kind TEXT NOT NULL,userId TEXT,groupId TEXT,ref TEXT,ip TEXT NOT NULL,createdAt INTEGER NOT NULL);
+    CREATE INDEX activity_log_time ON activity_log(createdAt);
+    CREATE INDEX activity_log_ref ON activity_log(ref);
+  `,
+  ],
 ]);
-export const LATEST_SCHEMA_VERSION = 10;
+export const LATEST_SCHEMA_VERSION = 11;
 const run = (db, source) => {
   // Keep migrations as individual statements; complex triggers require their
   // own explicit migration implementation rather than naive SQL splitting.
