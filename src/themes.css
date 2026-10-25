@@ -1,0 +1,360 @@
+:root {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  color: #e0e8f2;
+  background: #111821;
+  --muted: #9dadc1;
+  --line: #2a3747;
+  --blue: #64bcec;
+  --green: #62d2a8;
+  --surface: #18222f;
+  --raised: #202d3e;
+  --input: #111c29;
+}
+[data-theme="dark"] body,
+[data-theme="dark"] .app {
+  background: #111821;
+}
+[data-theme="dark"] .simple-onboarding {
+  background: #101923;
+}
+[data-theme="dark"] .connect-form {
+  background: var(--surface);
+  border-color: #2a3a4c;
+  box-shadow: 0 10px 45px #00000028;
+}
+[data-theme="dark"] .titlebar {
+  background: #111923;
+  border-color: #263345;
+  color: #9babc0;
+}
+[data-theme="dark"] .titlebar-name {
+  color: #b2c2d5;
+}
+[data-theme="dark"] .window-buttons button:hover {
+  background: #27374a;
+}
+[data-theme="dark"] .window-buttons .window-close:hover {
+  background: #bc4558;
+  color: white;
+}
+[data-theme="dark"] .sidebar {
+  background: #131d29;
+  border-color: var(--line);
+}
+[data-theme="dark"] .brand {
+  color: #e4eef8;
+}
+[data-theme="dark"] .brand-period {
+  color: #56b9ef;
+}
+[data-theme="dark"] .search-field {
+  background: #1d2a3b;
+  border-color: #2c3c50;
+  color: #a2b8ce;
+}
+[data-theme="dark"] input,
+[data-theme="dark"] select {
+  background: var(--input);
+  border-color: #35465c;
+}
+[data-theme="dark"] .search-field input {
+  background: transparent;
+  border: 0;
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #91a3b9;
+}
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus {
+  border-color: #68b7e2;
+}
+[data-theme="dark"] .icon-button {
+  color: #a2b7cd;
+}
+[data-theme="dark"] .icon-button:hover {
+  background: #26384b;
+  color: #e2efff;
+}
+[data-theme="dark"] .chat-item:hover {
+  background: #1b2c3e;
+}
+[data-theme="dark"] .chat-item.selected {
+  background: #1c354b;
+  box-shadow: inset 0 0 0 1px #2c506c;
+}
+[data-theme="dark"] .chat-item.selected:before {
+  background: #59b9ef;
+}
+[data-theme="dark"] .profile-bar {
+  background: #172330;
+  border-color: var(--line);
+}
+[data-theme="dark"] .online-dot {
+  border-color: #172330;
+}
+[data-theme="dark"] .main-panel {
+  background: #151f2b;
+}
+[data-theme="dark"] .conversation-header {
+  border-color: var(--line);
+}
+[data-theme="dark"] .action-divider,
+[data-theme="dark"] .date-divider:before,
+[data-theme="dark"] .date-divider:after {
+  background: var(--line);
+}
+[data-theme="dark"] .group-icon {
+  background: #203a50;
+  color: #9ccbec;
+}
+[data-theme="dark"] .group-color-1 {
+  background: #382b48;
+  color: #c6a9e1;
+}
+[data-theme="dark"] .group-color-2 {
+  background: #203e34;
+  color: #9ccfb5;
+}
+[data-theme="dark"] .group-color-3 {
+  background: #443426;
+  color: #dcbd96;
+}
+[data-theme="dark"] .avatar {
+  background: #263d50;
+  color: #b0d0e8;
+}
+[data-theme="dark"] .color-1 {
+  background: #3b2d50;
+  color: #cbb4e5;
+}
+[data-theme="dark"] .color-2 {
+  background: #49352b;
+  color: #e5bf9d;
+}
+[data-theme="dark"] .color-3 {
+  background: #244436;
+  color: #a9d9bc;
+}
+[data-theme="dark"] .color-4 {
+  background: #482e3c;
+  color: #e3afc8;
+}
+[data-theme="dark"] .button.primary {
+  background: #137ba9;
+  color: #f6fcff;
+  box-shadow: none;
+}
+[data-theme="dark"] .button.primary:hover:not(:disabled) {
+  background: #188cbd;
+}
+[data-theme="dark"] .button.secondary,
+[data-theme="dark"] .button.white {
+  background: #243448;
+  color: #d0e1f3;
+  border-color: #384f68;
+  box-shadow: none;
+}
+[data-theme="dark"] .button.secondary:hover,
+[data-theme="dark"] .button.white:hover {
+  background: #2c4159;
+}
+[data-theme="dark"] .button.soft-green {
+  background: #1b3d32;
+  color: #a0dfbc;
+}
+[data-theme="dark"] .text-button {
+  color: #6bc3f0;
+}
+[data-theme="dark"] .text-button:hover {
+  color: #a5e0ff;
+}
+[data-theme="dark"] .message-scroll {
+  scrollbar-color: #425870 transparent;
+}
+[data-theme="dark"] .message-bubble {
+  background: #253243;
+  color: #e2eaf5;
+}
+[data-theme="dark"] .message-row.own .message-bubble {
+  background: #1b4059;
+  color: #d6edff;
+}
+[data-theme="dark"] .message-bubble.failed {
+  background: #442b36;
+}
+[data-theme="dark"] .composer-area {
+  background: #182330;
+  border-color: #28374a;
+}
+[data-theme="dark"] .composer {
+  background: #111d2a;
+  border-color: #34465b;
+}
+[data-theme="dark"] .composer textarea {
+  background: transparent;
+  color: #e2eaf5;
+}
+[data-theme="dark"] .send-button {
+  background: #1a7da8;
+  color: white;
+}
+[data-theme="dark"] .send-button:disabled {
+  opacity: 0.4;
+}
+[data-theme="dark"] .emoji-picker {
+  background: #223247;
+  border-color: #3a4f67;
+  box-shadow: 0 8px 30px #00000040;
+}
+[data-theme="dark"] .emoji-picker button:hover {
+  background: #344b65;
+}
+[data-theme="dark"] .jump-latest {
+  background: #24384d;
+  border-color: #42617d;
+  color: #b2dfff;
+  box-shadow: 0 3px 15px #00000040;
+}
+[data-theme="dark"] .people-panel {
+  background: #17222f;
+  border-color: var(--line);
+}
+[data-theme="dark"] .people-title {
+  border-color: var(--line);
+}
+[data-theme="dark"] .call-bar {
+  background: #152d28;
+  border-color: #2b4d41;
+}
+[data-theme="dark"] .call-status strong,
+[data-theme="dark"] .call-person.speaking {
+  color: #9cdec0;
+}
+[data-theme="dark"] .call-status button,
+[data-theme="dark"] .call-person {
+  color: #a1bdaf;
+}
+[data-theme="dark"] .call-indicator {
+  background: #23483b;
+  color: #9bd8b9;
+}
+[data-theme="dark"] .call-indicator.recovering {
+  background: #443a24;
+  color: #ecd49b;
+}
+[data-theme="dark"] .call-control {
+  background: #24453a;
+  color: #b6dfcb;
+}
+[data-theme="dark"] .call-control:hover {
+  background: #315948;
+}
+[data-theme="dark"] .call-control.toggled {
+  background: #4a2d38;
+  color: #ffb2bd;
+}
+[data-theme="dark"] .call-control.hangup {
+  background: #c85065;
+  color: white;
+}
+[data-theme="dark"] .call-control.hangup:hover {
+  background: #dc6073;
+}
+[data-theme="dark"] .connection-banner,
+[data-theme="dark"] .notice,
+[data-theme="dark"] .local-warning {
+  background: #3a3223;
+  color: #e6ca99;
+}
+[data-theme="dark"] .modal-backdrop {
+  background: #050b13b8;
+}
+[data-theme="dark"] .modal {
+  background: #192533;
+  border-color: #35485e;
+  box-shadow: 0 25px 100px #00000066;
+}
+[data-theme="dark"] .invite-summary,
+[data-theme="dark"] .server-display {
+  background: #202f40;
+  border-color: #35485e;
+}
+[data-theme="dark"] .form-error {
+  background: #442c37;
+  color: #ffb4c1;
+}
+[data-theme="dark"] .settings-row,
+[data-theme="dark"] .settings-footer {
+  border-color: var(--line);
+}
+[data-theme="dark"] .settings-row {
+  color: #b4c6da;
+}
+[data-theme="dark"] .settings-row:hover {
+  color: #8ad6ff;
+}
+[data-theme="dark"] .danger-text,
+[data-theme="dark"] .retry-message {
+  color: #f2a2b0;
+}
+[data-theme="dark"] .audio-note {
+  background: #1c382f;
+  color: #afd7c1;
+}
+[data-theme="dark"] .shortcut-note kbd {
+  background: #253447;
+  border-color: #40536a;
+  color: #c3d3e6;
+}
+[data-theme="dark"]
+  :is(
+    .muted,
+    .field-hint,
+    .chat-preview,
+    .chat-item-time,
+    .sidebar-section h2,
+    .sidebar-invite,
+    .profile-bar > div > span,
+    .conversation-heading > button,
+    .message-meta time,
+    .date-divider,
+    .composer-hint,
+    .delivery-state,
+    .settings-footer,
+    .shortcut-note,
+    .invite-summary > div > span,
+    .or-divider,
+    .optional,
+    .workspace-loading,
+    .person-row > div > span,
+    .empty-conversation h3,
+    .server-display
+  ) {
+  color: var(--muted);
+}
+[data-theme="dark"] .voice-preview {
+  color: #91d7b7;
+}
+[data-theme] .message-row .message-bubble.emoji-message {
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+}
+
+[data-theme="dark"] .voice-banner {
+  background: #152d28;
+  border-color: #2b4d41;
+}
+[data-theme="dark"] .voice-banner-people .avatar {
+  border-color: #152d28;
+}
+[data-theme="dark"] .stage-state {
+  color: #9cdec0;
+}
+[data-theme="dark"] .incoming-call {
+  box-shadow: 0 12px 32px #00000088;
+}

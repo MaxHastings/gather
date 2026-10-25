@@ -1,0 +1,89 @@
+name: Desktop builds
+
+# Native checks are explicitly dispatched. Ordinary pushes do not start four builds.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Native platforms to check
+        type: choice
+        default: all
+        options: [all, windows, macos, linux]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-builds-${{ github.ref }}-${{ inputs.target || 'all' }}
+  cancel-in-progress: true
+
+jobs:
+  targets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: matrix
+        env:
+          GATHER_BUILD_TARGET: ${{ inputs.target }}
+        run: node scripts/desktop-build-matrix.mjs
+  build:
+    needs: targets
+    name: ${{ matrix.name }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      GATHER_SMOKE_PACKAGED: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-0t64 libnss3 libasound2t64 libgbm1 libxss1 libsecret-1-0 gnome-keyring dbus-x11 xvfb libfuse2t64
+      - run: npm ci --no-audit --no-fund
+      - run: node node_modules/npm/bin/npm-cli.js test
+      - name: Build native packages
+        run: node node_modules/npm/bin/npm-cli.js run dist:native
+      - name: Packaged credentials, restart, chat and synthetic voice
+        if: runner.os != 'Linux'
+        run: |
+          node scripts/session-smoke.mjs
+          node scripts/smoke.mjs
+      - name: Packaged Linux checks with a real secret service
+        if: runner.os == 'Linux'
+        run: dbus-run-session -- xvfb-run -a bash -e scripts/linux-desktop-check.sh
+      - name: Write artifact inventory
+        run: node scripts/desktop-build-info.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gather-${{ matrix.artifact }}-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            release/*.exe
+            release/*.dmg
+            release/*.zip
+            release/*.AppImage
+            release/*.deb
+            release/desktop-build.json
+      - name: Test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: diagnostics-${{ matrix.artifact }}
+          retention-days: 7
+          path: test-results/

@@ -1,0 +1,9 @@
+{
+  "format": "gather-update-trust-v1",
+  "keys": [
+    {
+      "id": "dcbc0b709956fe74",
+      "publicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA2Nw1RcfXrU2+U7h9aS6bSjKoLw8dKkf54SbxesMujUk=\n-----END PUBLIC KEY-----\n"
+    }
+  ]
+}
