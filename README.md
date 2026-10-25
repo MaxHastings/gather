@@ -2,7 +2,7 @@
 
 ![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue) ![Node 24+](https://img.shields.io/badge/node-24%2B-green)
 
-![Gather in a classic MSN-style dark theme](docs/previews/ux-classic-msn-dark.png)
+![Gather voice call and chat](docs/previews/gather-preview.png)
 
 A free, open-source, Skype/MSN/AIM-inspired place for your small crew. Private group chat and voice for a small group of friends. Windows desktop and browser clients share the same conversations.
 
