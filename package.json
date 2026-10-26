@@ -109,6 +109,7 @@
       "icon": "electron/icon.png",
       "artifactName": "Gather-${version}-Linux-${arch}.${ext}",
       "executableName": "gather",
+      "artifactName": "Gather-${version}-Linux-x64.${ext}",
       "category": "Network",
       "maintainer": "Gather maintainers",
       "desktop": {
