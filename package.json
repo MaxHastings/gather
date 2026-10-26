@@ -21,9 +21,10 @@
     "dist:native": "npm run build && electron-builder --publish never",
     "cloud:login": "wrangler login",
     "cloud:dev": "wrangler dev --ip 127.0.0.1 --port 8787",
-    "cloud:deploy": "npm run build && node scripts/prepare-download.mjs && wrangler deploy",
+    "deploy": "node scripts/deploy.mjs",
+    "cloud:deploy": "npm run build && node scripts/prepare-download.mjs && node scripts/deploy.mjs --no-build",
     "cloud:secrets": "node scripts/deploy-secrets.mjs",
-    "release:publish": "npm run dist && npm run test:release && node scripts/prepare-download.mjs && wrangler deploy",
+    "release:publish": "npm run dist && npm run test:release && node scripts/prepare-download.mjs && node scripts/deploy.mjs --no-build",
     "test:browser": "node scripts/browser-smoke.mjs",
     "test:release": "node scripts/verify-release.mjs"
   },

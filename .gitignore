@@ -13,3 +13,4 @@ test-results/
 .gather-test-*/
 .gather-backups/
 *.gather-backup
+.gather-release/

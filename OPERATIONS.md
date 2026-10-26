@@ -51,6 +51,8 @@ Before future cleanup is activated, restoration must also reapply current deleti
 
 ## Deployment and rollback
 
+Deploy with `npm run deploy`, never a bare `npx wrangler deploy`. `vite build` empties `dist/`, which deletes the installer parts, `downloads/releases.json` and `updates/latest.yml`; shipping without them makes /download say "unavailable" and breaks Windows auto-update. `scripts/deploy.mjs` keeps those files in `.gather-release/`, restores them after the build, refuses to deploy if they are missing, incomplete or for a version other than package.json, then deploys and checks `/`, `/download`, the catalog, the update manifest and each download live. If the live check fails it prints `npx wrangler rollback`. A fresh clone with no local copy can run `npm run deploy -- --from-live` to mirror the files from the live site first. `--dry-run` builds and validates without deploying. New releases still use `npm run release:publish` (or `cloud:deploy` after `prepare-download`), which now go through the same script. Take a backup first when the change touches data.
+
 Keep the deployed Worker version ID, app commit, protocol/schema versions, and download checksum with each release. A compatible backend-only change can deploy without changing the existing portable app download. Future schema changes need a tested pre-migration snapshot and compatible rollback strategy. Do not put an old binary onto an incompatible database.
 
 Cloud cleanup remains disabled. There is no automatic expiry or data migration in the backup foundation change. The eventual resource policy is based on measured budgets, not an assumed fixed retention period.
