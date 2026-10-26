@@ -57,9 +57,8 @@
   },
   "build": {
     "appId": "com.gather.desktop",
-    "afterPack": "scripts/embed-windows-icon.cjs",
     "productName": "Gather",
-    "afterPack": "scripts/adhoc-sign.cjs",
+    "afterPack": "scripts/after-pack.cjs",
     "directories": {
       "output": "release"
     },
