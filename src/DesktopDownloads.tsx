@@ -5,7 +5,15 @@ import {
   type DesktopRelease,
 } from "../server/desktop-releases.mjs";
 
-export function DesktopDownloads({ onDownload }: { onDownload: () => void }) {
+export function DesktopDownloads({
+  onDownload,
+  hero = false,
+  all = false,
+}: {
+  onDownload: () => void;
+  hero?: boolean;
+  all?: boolean;
+}) {
   const [releases, setReleases] = useState<DesktopRelease[]>([]);
   const platform = /Windows/i.test(navigator.userAgent)
     ? "win32"
@@ -43,6 +51,38 @@ export function DesktopDownloads({ onDownload }: { onDownload: () => void }) {
     </a>
   );
   if (!releases.length) return null;
+  if (hero) {
+    const main = native[0];
+    return (
+      <a
+        className="button secondary landing-cta landing-cta-small"
+        href={
+          main
+            ? `/download/${main.id === "windows-x64" ? "windows" : main.id}?v=${main.version}`
+            : "/download"
+        }
+        onClick={main ? onDownload : undefined}
+      >
+        <Download size={16} /> Get the desktop app
+      </a>
+    );
+  }
+  if (all)
+    return (
+      <>
+        {[...native, ...others].map(link)}
+        {native.some((entry) => entry.status === "preview") && (
+          <p className="field-hint">
+            Mac and Linux are previews with no automatic updates yet.
+            {platform === "darwin"
+              ? " The Mac app isn’t signed with a paid Apple certificate. On first open, right-click Gather and choose Open, or run xattr -cr /Applications/Gather.app in Terminal."
+              : platform === "linux"
+                ? " Make the AppImage executable (chmod +x) before running it."
+                : ""}
+          </p>
+        )}
+      </>
+    );
   const label = { darwin: "Mac", linux: "Linux" }[platform as string];
   return (
     <>
@@ -67,10 +107,11 @@ export function DesktopDownloads({ onDownload }: { onDownload: () => void }) {
       )}
       {native.some((entry) => entry.status === "preview") && (
         <p className="field-hint">
-          Preview build · Desktop updates are still being tested.
+          Preview build · No automatic updates yet, so check back here for new
+          versions.
           {platform === "darwin"
-            ? " macOS may ask you to allow Gather in Privacy & Security."
-            : ""}
+            ? " The app isn’t signed with a paid Apple certificate. On first open, right-click Gather and choose Open, or run xattr -cr /Applications/Gather.app in Terminal."
+            : " Make the AppImage executable (chmod +x) before running it."}
         </p>
       )}
     </>
