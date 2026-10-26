@@ -623,6 +623,7 @@ function Workspace({
     | "group"
     | "storage"
     | "shortcuts"
+    | "desktop"
     | null
   >(null);
   const [settingsParent, setSettingsParent] = useState(false);
@@ -638,7 +639,13 @@ function Workspace({
   }, []);
   const openSettingsSection = (
     section:
-      "audio" | "identity" | "history" | "notifications" | "sounds" | "storage",
+      | "audio"
+      | "identity"
+      | "history"
+      | "notifications"
+      | "sounds"
+      | "storage"
+      | "desktop",
   ) => {
     setSettingsParent(true);
     setModal(section);
@@ -2459,6 +2466,17 @@ function Workspace({
           )}
         </Modal>
       )}
+      {modal === "desktop" && (
+        <Modal
+          title="Desktop app"
+          onClose={closeModal}
+          onBack={settingsParent ? backToSettings : undefined}
+        >
+          <div className="desktop-download">
+            <DesktopDownloads all onDownload={() => {}} />
+          </div>
+        </Modal>
+      )}
       {modal === "invite" && group && !readOnly && (
         <Modal title="Invite a friend" onClose={closeModal}>
           <div className="invite-summary">
@@ -2729,6 +2747,16 @@ function Workspace({
             <span>Sounds</span>
             <ArrowRight size={15} />
           </button>
+          {!window.desktop && (
+            <button
+              className="settings-row"
+              onClick={() => openSettingsSection("desktop")}
+            >
+              <Monitor size={18} />
+              <span>Get the desktop app</span>
+              <ArrowRight size={15} />
+            </button>
+          )}
           <button
             className="settings-row"
             onClick={() => openSettingsSection("storage")}

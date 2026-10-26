@@ -12,6 +12,9 @@ export function Landing({
   return (
     <main className="landing">
       <section className="landing-hero">
+        <a className="landing-nav-link" href="/download">
+          Download
+        </a>
         <div className="brand landing-brand">
           <img className="brand-mark" src="/icon-192.png" alt="" />
           <span>
@@ -24,9 +27,12 @@ export function Landing({
           your crew is in a call in seconds. No servers, no channels, no account
           forms.
         </p>
-        <button className="button primary landing-cta" onClick={onStart}>
-          Start a group
-        </button>
+        <div className="landing-actions">
+          <button className="button primary landing-cta" onClick={onStart}>
+            Start a group in your browser
+          </button>
+          <DesktopDownloads hero onDownload={() => {}} />
+        </div>
         <button className="text-button" onClick={onRestore}>
           Already use Gather? Restore your profile
         </button>
@@ -65,15 +71,15 @@ export function Landing({
           </p>
         </div>
       </section>
-      <section className="landing-apps">
-        <h2>Use it your way</h2>
+      <section className="landing-apps" id="downloads">
+        <h2>Download the desktop app</h2>
         <p>
           Gather runs right in your browser on Mac, Windows, Linux, iPhone and
           Android. On a phone, add it to your Home Screen for an app-like feel.
-          A desktop app is available for Windows.
+          Desktop apps are available for Windows, Mac and Linux.
         </p>
         <div className="desktop-download">
-          <DesktopDownloads onDownload={() => {}} />
+          <DesktopDownloads all onDownload={() => {}} />
         </div>
       </section>
       <footer className="landing-legal">

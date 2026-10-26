@@ -29,7 +29,7 @@
 3. Your friend opens the link, enters a name and joins.
 4. Click **Join voice** and allow the microphone.
 
-Chrome and Edge are the tested browsers; Safari has basic support. Windows has a per-user installer. macOS and Linux can use the browser today.
+Chrome and Edge are the tested browsers; Safari has basic support. Windows has a per-user installer with automatic updates. macOS (dmg, Apple Silicon and Intel) and Linux (AppImage, deb) builds are previews without automatic updates. The Mac app uses a free ad-hoc signature rather than a paid Apple certificate, so on first open right-click Gather and choose Open, or run `xattr -cr /Applications/Gather.app`. On Linux, `chmod +x` the AppImage first.
 
 The chat owner can remove people, replace the invite or hand over ownership, and anyone can leave.
 
