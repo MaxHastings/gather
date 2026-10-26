@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MoreHorizontal,
   Pencil,
@@ -51,6 +51,31 @@ export function MessageActions({
     setReporting(false);
     setError("");
   };
+  const beginEdit = () => {
+    let saved;
+    try {
+      saved = JSON.parse(localStorage.getItem(key) || "null");
+    } catch {}
+    setText(typeof saved?.text === "string" ? saved.text : message.body);
+    setBase(
+      saved?.base ?? message.contentRevision ?? message.revision ?? 0,
+    );
+    setEditing(true);
+    setMenu(false);
+    setError("");
+  };
+  // Up arrow in an empty message box asks to edit your last message.
+  const editRequest = useRef(beginEdit);
+  editRequest.current = beginEdit;
+  useEffect(() => {
+    if (!canEdit) return;
+    const listener = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === message.id)
+        editRequest.current();
+    };
+    window.addEventListener("gather:edit-message", listener);
+    return () => window.removeEventListener("gather:edit-message", listener);
+  }, [canEdit, message.id]);
   if (message.deletedAt && !editing) return null;
   return (
     <div
@@ -112,24 +137,7 @@ export function MessageActions({
           {canEdit && (
             <>
               <button
-                onClick={() => {
-                  let saved;
-                  try {
-                    saved = JSON.parse(localStorage.getItem(key) || "null");
-                  } catch {}
-                  setText(
-                    typeof saved?.text === "string" ? saved.text : message.body,
-                  );
-                  setBase(
-                    saved?.base ??
-                      message.contentRevision ??
-                      message.revision ??
-                      0,
-                  );
-                  setEditing(true);
-                  setMenu(false);
-                  setError("");
-                }}
+                onClick={beginEdit}
               >
                 <Pencil size={14} />
                 Edit

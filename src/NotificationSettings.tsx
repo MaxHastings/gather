@@ -1,10 +1,47 @@
 import { useEffect, useState } from "react";
 import type { Group, Session } from "./types";
 import {
+  describeUntil,
+  FOREVER,
+  muteEnd,
   readNotificationPreferences,
   saveNotificationPreferences,
   type NotificationPreferences,
 } from "./notifications";
+
+export const muteChoices = [
+  ["off", "Not muted"],
+  ["1h", "Mute for 1 hour"],
+  ["8h", "Mute for 8 hours"],
+  ["tomorrow", "Mute until tomorrow morning"],
+  ["forever", "Mute until I unmute"],
+] as const;
+/** Returns preferences with one chat's mute set to a choice from muteChoices. */
+export function withMute(
+  preferences: NotificationPreferences,
+  groupId: string,
+  choice: string,
+): NotificationPreferences {
+  const mutedUntil = { ...preferences.mutedUntil };
+  delete mutedUntil[groupId];
+  const end = muteEnd(choice);
+  if (end && end < FOREVER) mutedUntil[groupId] = end;
+  return {
+    ...preferences,
+    muted:
+      choice === "forever"
+        ? [...new Set([...preferences.muted, groupId])]
+        : preferences.muted.filter((id) => id !== groupId),
+    mutedUntil,
+  };
+}
+export function currentMuteChoice(
+  preferences: NotificationPreferences,
+  groupId: string,
+) {
+  if (preferences.muted.includes(groupId)) return "forever";
+  return (preferences.mutedUntil[groupId] ?? 0) > Date.now() ? "timed" : "off";
+}
 
 export function NotificationSettings({
   session,
@@ -105,25 +142,69 @@ export function NotificationSettings({
         />
         <span>Show names and message previews</span>
       </label>
+      <h3>Do Not Disturb</h3>
+      <p className="field-hint">
+        Silences message alerts, call rings and their sounds. Incoming calls
+        still show on screen.
+        {preferences.dndUntil > Date.now() &&
+          ` On ${describeUntil(preferences.dndUntil)}.`}
+      </p>
+      <select
+        aria-label="Do Not Disturb"
+        value={preferences.dndUntil > Date.now() ? "on" : "off"}
+        onChange={(event) => {
+          const choice = event.target.value;
+          if (choice === "on" || choice === "off")
+            return save({
+              ...preferences,
+              dndUntil: choice === "on" ? preferences.dndUntil : 0,
+            });
+          save({ ...preferences, dndUntil: muteEnd(choice) });
+        }}
+      >
+        <option value="off">Off</option>
+        {preferences.dndUntil > Date.now() && (
+          <option value="on">
+            On {describeUntil(preferences.dndUntil)}
+          </option>
+        )}
+        <option value="1h">For 1 hour</option>
+        <option value="8h">For 8 hours</option>
+        <option value="tomorrow">Until tomorrow morning</option>
+        <option value="forever">Until I turn it off</option>
+      </select>
       <h3>Muted chats</h3>
+      <p className="field-hint">
+        Muted chats stay quiet, but a message that mentions you still gets
+        through.
+      </p>
       <div className="notification-chat-list">
-        {groups.map((group) => (
-          <label className="preference-toggle" key={group.id}>
-            <input
-              type="checkbox"
-              checked={preferences.muted.includes(group.id)}
-              onChange={(event) =>
-                save({
-                  ...preferences,
-                  muted: event.target.checked
-                    ? [...preferences.muted, group.id]
-                    : preferences.muted.filter((id) => id !== group.id),
-                })
-              }
-            />
-            <span>{group.name}</span>
-          </label>
-        ))}
+        {groups.map((group) => {
+          const choice = currentMuteChoice(preferences, group.id);
+          return (
+            <div className="preference-select" key={group.id}>
+              <span>{group.name}</span>
+              <select
+                aria-label={`Mute ${group.name}`}
+                value={choice}
+                onChange={(event) =>
+                  save(withMute(preferences, group.id, event.target.value))
+                }
+              >
+                {choice === "timed" && (
+                  <option value="timed">
+                    Muted {describeUntil(preferences.mutedUntil[group.id])}
+                  </option>
+                )}
+                {muteChoices.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        })}
       </div>
       {error && (
         <p className="form-error" role="alert">

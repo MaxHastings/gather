@@ -7,8 +7,9 @@ export function GroupDetails({
   userId,
   membership,
   onLeave,
-  muted,
-  onMute,
+  muteChoice,
+  muteText,
+  onMuteChange,
 }: {
   group: Group;
   online: boolean;
@@ -20,8 +21,9 @@ export function GroupDetails({
     userId?: string,
   ) => Promise<void>;
   onLeave: () => void;
-  muted?: boolean;
-  onMute?: () => void;
+  muteChoice?: string;
+  muteText?: string;
+  onMuteChange?: (choice: string) => void;
 }) {
   const [name, setName] = useState(group.name),
     [busy, setBusy] = useState(false),
@@ -88,14 +90,24 @@ export function GroupDetails({
           {error}
         </p>
       )}
-      {onMute && (
-        <button
-          type="button"
-          className="text-button chat-mute"
-          onClick={onMute}
-        >
-          {muted ? "Unmute notifications" : "Mute notifications"}
-        </button>
+      {onMuteChange && (
+        <div className="preference-select chat-mute">
+          <label htmlFor="chat-mute">Notifications</label>
+          <select
+            id="chat-mute"
+            value={muteChoice}
+            onChange={(event) => onMuteChange(event.target.value)}
+          >
+            {muteChoice === "timed" && (
+              <option value="timed">{muteText || "Muted for now"}</option>
+            )}
+            <option value="off">On</option>
+            <option value="1h">Mute for 1 hour</option>
+            <option value="8h">Mute for 8 hours</option>
+            <option value="tomorrow">Mute until tomorrow morning</option>
+            <option value="forever">Mute until I unmute</option>
+          </select>
+        </div>
       )}
       {membership && (
         <section className="group-membership" aria-label="Chat membership">

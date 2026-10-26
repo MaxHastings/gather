@@ -1,3 +1,5 @@
+<p align="center"><img src="electron/icon.png" alt="Gather logo" width="96" height="96"></p>
+
 # Gather
 
 ![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue) ![Node 24+](https://img.shields.io/badge/node-24%2B-green)
@@ -10,7 +12,8 @@
 
 ## What you get
 
-- **Group chat** that stays put: history, search, unread markers, replies, edits, reactions, typing indicators, link formatting and per-chat muting.
+- **Group chat** that stays put: history, search, unread markers and counts, replies, edits, reactions, @mentions, "Seen by", typing indicators, link formatting, and muting for a while or Do Not Disturb.
+- **Presence**: online, away after a few idle minutes, and a short status message. The desktop app stays in the tray when you close the window.
 - **Voice calls for up to four people**, with mute/deafen, device selection and speaking rings. Ring a friend, or everyone who is online, and they get an incoming-call popup with Join and Decline.
 - **A call stage** that shows everyone as tiles with chat beside it (a tab on narrow windows).
 - **GIFs and emoji**: GIF search (powered by Klipy), a fast searchable emoji picker, and the classic MSN emoticons.

@@ -260,30 +260,10 @@ label .optional {
   color: #0a9fdb;
 }
 .brand-mark {
-  position: relative;
   width: 37px;
   height: 37px;
-  border-radius: 13px;
-  background: #079cda;
-  color: white;
-  display: grid;
-  place-items: center;
-}
-.brand-mark > svg {
-  width: 28px;
-  height: 28px;
-}
-.brand-mark i {
-  position: absolute;
-  top: 16px;
-  left: 14px;
-  width: 3px;
-  height: 3px;
-  border-radius: 100%;
-  background: #079cda;
-}
-.brand-mark i:last-child {
-  left: 21px;
+  display: block;
+  flex: none;
 }
 .version-label {
   display: block;
@@ -462,6 +442,24 @@ label .optional {
   height: 7px;
   width: 7px;
   flex-shrink: 0;
+}
+.unread-dot.unread-count {
+  background: #e5484d;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  height: 16px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  text-align: center;
+  box-sizing: border-box;
+}
+.chat-item.unread .chat-item-name,
+.chat-item.unread .chat-preview {
+  font-weight: 700;
+  color: var(--text, inherit);
 }
 .empty-search {
   padding: 18px 12px;
@@ -3752,4 +3750,135 @@ label .optional {
   font-size: 12px;
   margin: 8px 0 0;
   text-align: center;
+}
+
+/* Mentions, away status, seen marker, mute choices, shortcuts, delete account */
+.mention {
+  font-weight: 600;
+  color: var(--blue);
+}
+.mention-self {
+  background: color-mix(in srgb, var(--blue) 18%, transparent);
+  border-radius: 4px;
+  padding: 0 3px;
+}
+.message-row.mentioned .message-bubble {
+  box-shadow: inset 3px 0 0 var(--blue);
+}
+.mention-picker {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 6px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px #1a2a3d1f;
+  max-width: 320px;
+}
+.mention-picker button {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  text-align: left;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.mention-picker button.active,
+.mention-picker button:hover {
+  background: var(--raised);
+}
+.mention-picker .mention-at {
+  color: var(--blue);
+  font-weight: 600;
+}
+.mention-picker small {
+  color: var(--muted);
+  margin-left: auto;
+}
+.online-dot.away {
+  background: #e3a43a;
+}
+.preference-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+.preference-select > span,
+.preference-select > label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preference-select select {
+  max-width: 55%;
+}
+.shortcut-list {
+  margin: 0;
+  display: grid;
+  gap: 2px;
+}
+.shortcut-list > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.shortcut-list dt {
+  flex: none;
+}
+.shortcut-list dd {
+  margin: 0;
+  text-align: right;
+  color: var(--muted);
+}
+.shortcut-list kbd {
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 2px 7px;
+  font: inherit;
+  font-size: 12px;
+}
+.delete-account-open {
+  display: block;
+  margin: 10px 0 0;
+}
+.delete-account {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid #e6b3b0;
+  border-radius: 10px;
+}
+.delete-account p {
+  margin: 0;
+  line-height: 1.45;
+}
+.delete-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.button.danger {
+  background: #c9423c;
+  color: #fff;
+}
+.button.danger:disabled {
+  opacity: 0.5;
+}
+.desktop-settings .preference-toggle {
+  margin: 4px 0;
 }

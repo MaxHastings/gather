@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Desktop: closing the window now keeps Gather running in the tray (Windows and Linux with a tray) or the Dock (Mac), so friends see you online and can ring you. A tray menu offers Open, "Keep Gather running when closed", "Start Gather when I sign in" and Quit; the tray icon shows a red dot when something is unread. Both choices are also in Settings. Start on login is available in the installed app on Windows and Mac. Quit from the tray to fully close.
+- The Gather logo now appears everywhere: the Windows exe, installer, shortcuts and taskbar (the build was skipping the icon step, so shortcuts showed a generic icon), the tray, favicon and PWA icons, link previews and the README.
+- @mentions: type @ to pick someone (or @everyone). Mentions are highlighted for the person mentioned, and they notify even when the chat is muted.
+- Away and status: you show as Away after five idle minutes (never during a call), and can set a short status message that friends see under your name. People now show as Online, Away or Offline.
+- Seen: your newest message shows "Seen by" the people who have read it.
+- Mute a chat for an hour, eight hours, until tomorrow morning or until you unmute it, and turn on Do Not Disturb to silence alerts, rings and their sounds.
+- Delete my account (in Settings) removes your messages and files from the server, takes you out of every chat and hands ownership to the next member.
+- Keyboard shortcuts: Ctrl/Cmd+K jumps to a chat, Alt+Up/Down switches chats, Up arrow in an empty message box edits your last message, and Ctrl/Cmd+/ lists them all.
+- Server: schema 12 adds a status message and read positions; new `presence-status-v1` and `account-delete-v1` capabilities.
+
+- Unread messages are now easier to spot: chats with unread messages show a bold name and a count badge (muted chats are left out of the total), the browser tab title shows `(N) Gather` with a red dot on the favicon, and the desktop app shows a taskbar overlay dot (Windows) or badge count (Mac/Linux) and flashes the taskbar once when a message arrives while the window is in the background. Desktop part needs a new installer release.
+
 - A file is removed from the server one day after every other member of the chat has downloaded it (the 30-day / 7-day limits still apply to files someone never fetches). Devices keep their local copies. Delivery is tracked per person, so a second device of the same person may find the file already gone.
 - Retention policy: the server is a relay, not an archive. Files are removed from the server 30 days after upload (7 days for files of 25 MB or more); the message stays and the file shows as expired, and devices keep what they already received. At the 250 MB chat or person limit, the oldest sent files roll off instead of blocking uploads. Text is kept at least two years. Retention constants live in `server/media.mjs`.
 

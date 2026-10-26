@@ -1,6 +1,6 @@
 {
   "name": "gather-desktop",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "license": "AGPL-3.0-only",
   "description": "A quieter place for your people. Private group chat and voice for desktop.",
@@ -50,12 +50,14 @@
     "js-yaml": "4.3.2",
     "npm": "12.2.1",
     "prettier": "3.9.10",
+    "rcedit": "5.0.2",
     "typescript": "7.0.2",
     "vite": "8.3.5",
     "wrangler": "4.152.0"
   },
   "build": {
     "appId": "com.gather.desktop",
+    "afterPack": "scripts/embed-windows-icon.cjs",
     "productName": "Gather",
     "afterPack": "scripts/adhoc-sign.cjs",
     "directories": {

@@ -2,10 +2,15 @@ import { memo, useState, useMemo } from "react";
 import { EmojiText } from "./Emoji";
 import { messageText, inlineText } from "../server/message-text.mjs";
 import { gifUrl } from "../server/gif-policy.mjs";
+import { splitMentions } from "../server/mentions.mjs";
 export const MessageText = memo(function MessageText({
   text,
+  names = [],
+  self,
 }: {
   text: string;
+  names?: string[];
+  self?: string;
 }) {
   const blocks = useMemo(() => messageText(text), [text]);
   const [error, setError] = useState("");
@@ -51,7 +56,27 @@ export const MessageText = memo(function MessageText({
                     {t.value}
                   </a>
                 );
-              const body = <EmojiText text={t.value} />;
+              const body = (
+                <>
+                  {splitMentions(t.value, names).map((part, k) =>
+                    part.type === "mention" ? (
+                      <span
+                        key={k}
+                        className={`mention${
+                          /^(everyone|here)$/i.test(part.name ?? "") ||
+                          part.name?.toLowerCase() === self?.toLowerCase()
+                            ? " mention-self"
+                            : ""
+                        }`}
+                      >
+                        {part.value}
+                      </span>
+                    ) : (
+                      <EmojiText key={k} text={part.value} />
+                    ),
+                  )}
+                </>
+              );
               return t.type === "bold" ? (
                 <strong key={j}>{body}</strong>
               ) : t.type === "italic" ? (

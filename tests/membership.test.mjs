@@ -264,8 +264,8 @@ test("legacy chats assign their earliest member as owner even when later members
   const first = randomUUID(),
     older = randomUUID(),
     id = randomUUID();
-  db.prepare("INSERT INTO users VALUES (?,?,?)").run(older, "Old identity", 1);
-  db.prepare("INSERT INTO users VALUES (?,?,?)").run(first, "Creator", 2);
+  db.prepare("INSERT INTO users (id,name,createdAt) VALUES (?,?,?)").run(older, "Old identity", 1);
+  db.prepare("INSERT INTO users (id,name,createdAt) VALUES (?,?,?)").run(first, "Creator", 2);
   db.prepare("INSERT INTO groups VALUES (?,?,?,?)").run(
     id,
     "Legacy",

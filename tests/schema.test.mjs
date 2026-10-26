@@ -53,7 +53,7 @@ test("existing deleted attachments are reannounced with cleanup references after
   );
   // Retire the newer, empty avatar tables to reproduce the schema-six fixture.
   sqlite.exec(
-    "DROP TABLE reports; DROP TABLE bans; DROP TABLE activity_log; DROP TABLE media_fetches; DROP TABLE message_replies; DROP TABLE cancelled_messages; DROP TABLE server_state; DROP TABLE group_departures; DROP TABLE group_controls; DROP TABLE avatar_slots; DROP TABLE avatar_images; DELETE FROM schema_versions WHERE version>6;",
+    "DROP TABLE read_marks; ALTER TABLE users DROP COLUMN status; DROP TABLE reports; DROP TABLE bans; DROP TABLE activity_log; DROP TABLE media_fetches; DROP TABLE message_replies; DROP TABLE cancelled_messages; DROP TABLE server_state; DROP TABLE group_departures; DROP TABLE group_controls; DROP TABLE avatar_slots; DROP TABLE avatar_images; DELETE FROM schema_versions WHERE version>6;",
   );
   initializeSchema(db);
   const replay = await domain.handle(
@@ -90,7 +90,7 @@ test("version one archives restore and migrate without changing identities, gran
   const userId = randomUUID(),
     groupId = randomUUID(),
     token = "schema-fixture-only";
-  db.prepare("INSERT INTO users VALUES (?,?,?)").run(
+  db.prepare("INSERT INTO users (id,name,createdAt) VALUES (?,?,?)").run(
     userId,
     "Original person",
     1234,

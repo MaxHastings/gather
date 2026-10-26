@@ -19,6 +19,7 @@ import {
   Copy,
   Download,
   Headphones,
+  Keyboard,
   HeadphoneOff,
   Heart,
   Link,
@@ -75,14 +76,32 @@ import { EmoticonPicker } from "./EmoticonPicker";
 import type { GifSearch } from "./GifPanel";
 import { gifUrl } from "../server/gif-policy.mjs";
 import {
+  activeMutes,
+  describeUntil,
+  isDoNotDisturb,
   readNotificationPreferences,
   saveNotificationPreferences,
 } from "./notifications";
+import { setSoundsSilenced } from "./sounds";
+import { DesktopSettings } from "./DesktopSettings";
+import { DeleteAccount } from "./AccountSettings";
+import { ShortcutsHelp } from "./ShortcutsHelp";
+import {
+  MentionPicker,
+  mentionChoices,
+  mentionTrigger,
+  type MentionTrigger,
+} from "./MentionPicker";
 import { SoundSettings } from "./SoundSettings";
-import { NotificationSettings } from "./NotificationSettings";
+import {
+  NotificationSettings,
+  currentMuteChoice,
+  withMute,
+} from "./NotificationSettings";
 import { UpdateBanner, UpdateSettings } from "./Updates";
 import { useDismissable } from "./useDismissable";
 import { historyScope, history as localHistory } from "./history";
+import { showUnreadAttention } from "./attention";
 import { downloadArchive, exportArchive } from "./archive";
 import type { Group, Person, Session, Message } from "./types";
 import { version } from "../package.json";
@@ -116,11 +135,7 @@ function GroupIcon({
 function Brand() {
   return (
     <div className="brand">
-      <span className="brand-mark">
-        <MessageCircle size={23} fill="currentColor" strokeWidth={0} />
-        <i />
-        <i />
-      </span>
+      <img className="brand-mark" src="/icon-192.png" alt="" />
       <span>
         gather<span className="brand-period">.</span>
       </span>
@@ -607,6 +622,7 @@ function Workspace({
     | "sounds"
     | "group"
     | "storage"
+    | "shortcuts"
     | "desktop"
     | null
   >(null);
@@ -642,10 +658,66 @@ function Workspace({
     }
   }, [notify]);
   const [showSavedChats, setShowSavedChats] = useState(false);
-  const [mutedChats, setMutedChats] = useState(
-    () => readNotificationPreferences(session).muted,
+  const [mutedChats, setMutedChats] = useState(() =>
+    activeMutes(readNotificationPreferences(session)),
   );
+  const [doNotDisturb, setDoNotDisturb] = useState(() =>
+    isDoNotDisturb(readNotificationPreferences(session)),
+  );
+  // Timed mutes and Do Not Disturb expire on their own, so look again often.
+  useEffect(() => {
+    const refresh = () => {
+      const preferences = readNotificationPreferences(session);
+      const muted = activeMutes(preferences);
+      setMutedChats((current) =>
+        current.join() === muted.join() ? current : muted,
+      );
+      setDoNotDisturb(isDoNotDisturb(preferences));
+    };
+    const timer = setInterval(refresh, 20000);
+    window.addEventListener("gather:notification-preferences", refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("gather:notification-preferences", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, [session]);
+  useEffect(() => {
+    setSoundsSilenced(doNotDisturb);
+    return () => setSoundsSilenced(false);
+  }, [doNotDisturb]);
   const [showPeople, setShowPeople] = useState(false);
+  const [profileStatus, setProfileStatus] = useState(session.user.status ?? "");
+  const searchField = useRef<HTMLInputElement>(null);
+  // Away after five idle minutes (never while in a call); any input ends it.
+  const inCall = Boolean(call.group);
+  useEffect(() => {
+    let last = Date.now();
+    let away = false;
+    const active = () => {
+      last = Date.now();
+      if (away) {
+        away = false;
+        chatActions.current.setAway(false);
+      }
+    };
+    const check = () => {
+      if (inCall) return active();
+      if (!away && Date.now() - last > 5 * 60_000) {
+        away = true;
+        chatActions.current.setAway(true);
+      }
+    };
+    const events = ["pointerdown", "pointermove", "keydown", "wheel", "focus"];
+    for (const name of events) window.addEventListener(name, active, true);
+    const timer = setInterval(check, 15_000);
+    return () => {
+      for (const name of events) window.removeEventListener(name, active, true);
+      clearInterval(timer);
+      chatActions.current.setAway(false);
+    };
+  }, [inCall]);
   const [drafts, setDrafts] = useState<Record<string, string>>(() => {
     try {
       return JSON.parse(
@@ -745,6 +817,45 @@ function Workspace({
     setPhonePane("chat");
   }
   useEffect(() => setPhonePane("chat"), [chat.selected]);
+  const shortcutState = useRef({ groups: chat.groups, selected: chat.selected });
+  shortcutState.current = { groups: chat.groups, selected: chat.selected };
+  const chooseChatRef = useRef(chooseChat);
+  chooseChatRef.current = chooseChat;
+  useEffect(() => {
+    const keys = (event: KeyboardEvent) => {
+      const command = event.ctrlKey || event.metaKey;
+      if (command && !event.shiftKey && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPhonePane("list");
+        setShowSavedChats(false);
+        requestAnimationFrame(() => {
+          searchField.current?.focus();
+          searchField.current?.select();
+        });
+      } else if (command && event.key === "/") {
+        event.preventDefault();
+        setModal("shortcuts");
+      } else if (
+        event.altKey &&
+        !command &&
+        (event.key === "ArrowUp" || event.key === "ArrowDown")
+      ) {
+        const { groups, selected } = shortcutState.current;
+        const active = groups.filter((g) => !g.access || g.access === "active");
+        const at = active.findIndex((g) => g.id === selected);
+        if (!active.length) return;
+        event.preventDefault();
+        const next =
+          active[
+            (Math.max(at, 0) + (event.key === "ArrowDown" ? 1 : -1) + active.length) %
+              active.length
+          ];
+        chooseChatRef.current(next.id);
+      }
+    };
+    window.addEventListener("keydown", keys);
+    return () => window.removeEventListener("keydown", keys);
+  }, []);
   useEffect(() => {
     const save = () => saveReadingRef.current();
     window.addEventListener("pagehide", save);
@@ -788,6 +899,35 @@ function Workspace({
     () => Object.fromEntries(group?.members.map((p) => [p.id, p.name]) ?? []),
     [group?.members],
   );
+  const mentionNames = useMemo(
+    () => group?.members.map((p) => p.name) ?? [],
+    [group?.members],
+  );
+  const latestMessage = chat.messages.at(-1);
+  // "Seen by" for your newest message, from the other members' read positions.
+  const seenLabel = useMemo(() => {
+    if (
+      !group ||
+      !latestMessage ||
+      latestMessage.userId !== session.user.id ||
+      latestMessage.status ||
+      latestMessage.deletedAt ||
+      !chat.capabilities.includes("presence-status-v1")
+    )
+      return "";
+    const others = group.members.filter((p) => p.id !== session.user.id);
+    const seen = others.filter(
+      (p) => (chat.reads[group.id]?.[p.id] ?? 0) >= latestMessage.sequence,
+    );
+    if (!seen.length) return "";
+    if (others.length > 2 && seen.length === others.length) return "everyone";
+    return seen.length > 3
+      ? `${seen
+          .slice(0, 2)
+          .map((p) => p.name)
+          .join(", ")} and ${seen.length - 2} others`
+      : seen.map((p) => p.name).join(", ");
+  }, [group, latestMessage, chat.reads, chat.capabilities, session.user.id]);
   const messageIndex = useMemo(
     () => new Map(chat.messages.map((m) => [m.id, m])),
     [chat.messages],
@@ -1063,6 +1203,8 @@ function Workspace({
     .at(-1)?.sequence;
   const markRead = useCallback(() => {
     if (latestSequence && nearBottom.current && document.hasFocus())
+      chatActions.current.sendRead(chat.selected, latestSequence);
+    if (latestSequence && nearBottom.current && document.hasFocus())
       setLastRead((current) => {
         if ((current[chat.selected] || 0) >= latestSequence) return current;
         const next = { ...current, [chat.selected]: latestSequence };
@@ -1137,6 +1279,14 @@ function Workspace({
       window.removeEventListener("gather:history-updated", changed);
     };
   }, [groupIdsKey, lastRead, session.server, session.user.id]);
+  const totalUnread = Object.entries(unread).reduce(
+    (sum, [id, count]) => (mutedChats.includes(id) ? sum : sum + count),
+    0,
+  );
+  useEffect(() => {
+    showUnreadAttention(totalUnread);
+  }, [totalUnread]);
+  useEffect(() => () => showUnreadAttention(0), []);
   useEffect(() => {
     setFormError("");
     setCopied(false);
@@ -1148,6 +1298,42 @@ function Workspace({
   function updateDraft(value: string) {
     setDrafts((current) => ({ ...current, [chat.selected]: value }));
     chat.noteTyping(Boolean(value.trim()));
+  }
+  const [mention, setMention] = useState<MentionTrigger | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const mentionList = useMemo(
+    () =>
+      mention && group
+        ? mentionChoices(group.members, session.user.id, mention.query)
+        : [],
+    [mention, group, session.user.id],
+  );
+  function watchMention(field: HTMLTextAreaElement) {
+    const next = mentionTrigger(field.value, field.selectionStart);
+    setMention((current) =>
+      current?.start === next?.start && current?.query === next?.query
+        ? current
+        : next,
+    );
+    setMentionIndex(0);
+  }
+  function pickMention(name: string) {
+    const field = composer.current;
+    if (!mention || !field) return;
+    const end = field.selectionStart;
+    const insert = `@${name} `;
+    const next = draft.slice(0, mention.start) + insert + draft.slice(end);
+    if (next.length > 4000) {
+      notify("Your message is at the character limit.");
+      return;
+    }
+    updateDraft(next);
+    setMention(null);
+    const position = mention.start + insert.length;
+    requestAnimationFrame(() => {
+      field.focus();
+      field.setSelectionRange(position, position);
+    });
   }
   const newMessages = chat.messages.filter(
     (m) =>
@@ -1251,6 +1437,7 @@ function Workspace({
         <div className="search-field">
           <Search size={17} />
           <input
+            ref={searchField}
             aria-label="Search conversations"
             placeholder="Search chats"
             value={query}
@@ -1282,6 +1469,7 @@ function Workspace({
                 className={cx(
                   "chat-item",
                   chat.selected === g.id && "selected",
+                  unread[g.id] > 0 && "unread",
                 )}
                 onClick={() => chooseChat(g.id)}
               >
@@ -1315,7 +1503,12 @@ function Workspace({
                   </span>
                 </span>
                 {unread[g.id] ? (
-                  <span className="unread-dot" aria-label="Unread messages" />
+                  <span
+                    className="unread-dot unread-count"
+                    aria-label={`${unread[g.id]} unread ${unread[g.id] === 1 ? "message" : "messages"}`}
+                  >
+                    {unread[g.id] > 9 ? "9+" : unread[g.id]}
+                  </span>
                 ) : (
                   <span className="chat-item-time">
                     {g.lastMessage
@@ -1349,11 +1542,21 @@ function Workspace({
         </button>
         <div className="sidebar-bottom">
           <div className="profile-bar">
-            <Avatar person={self} online={chat.connection === "connected"} />
+            <Avatar
+              person={self}
+              online={chat.connection === "connected"}
+              away={chat.away.includes(session.user.id) || doNotDisturb}
+            />
             <div>
               <strong>{session.user.name}</strong>
               <span>
-                {chat.connection === "connected" ? "Online" : "Reconnecting…"}
+                {chat.connection !== "connected"
+                  ? "Reconnecting…"
+                  : doNotDisturb
+                    ? "Do not disturb"
+                    : chat.away.includes(session.user.id)
+                      ? "Away"
+                      : session.user.status || "Online"}
               </span>
             </div>
             <button
@@ -1657,6 +1860,12 @@ function Workspace({
                             personName={person?.name ?? m.name}
                             avatarId={person?.avatarId}
                             last={i === chat.messages.length - 1}
+                            names={mentionNames}
+                            seenBy={
+                              i === chat.messages.length - 1
+                                ? seenLabel
+                                : undefined
+                            }
                             transfer={chat.transfers[m.clientId]}
                             actions={rowActions}
                             people={people}
@@ -1861,6 +2070,14 @@ function Workspace({
                         </button>
                       </div>
                     )}
+                    {mention && mentionList.length > 0 && (
+                      <MentionPicker
+                        choices={mentionList}
+                        index={mentionIndex}
+                        onPick={pickMention}
+                        onHover={setMentionIndex}
+                      />
+                    )}
                     <div className="composer">
                       {chat.capabilities.includes("attachments-v1") && (
                         <>
@@ -1893,13 +2110,17 @@ function Workspace({
                         value={draft}
                         maxLength={4000}
                         rows={1}
-                        onChange={(e) => updateDraft(e.target.value)}
+                        onChange={(e) => {
+                          updateDraft(e.target.value);
+                          watchMention(e.target);
+                        }}
                         onSelect={(event) => {
                           caret.current = {
                             groupId: chat.selected,
                             start: event.currentTarget.selectionStart,
                             end: event.currentTarget.selectionEnd,
                           };
+                          watchMention(event.currentTarget);
                         }}
                         onBlur={(event) => {
                           caret.current = {
@@ -1910,6 +2131,59 @@ function Workspace({
                           chat.noteTyping(false);
                         }}
                         onKeyDown={(e) => {
+                          if (mention && mentionList.length > 0) {
+                            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                              e.preventDefault();
+                              setMentionIndex(
+                                (i) =>
+                                  (i +
+                                    (e.key === "ArrowDown" ? 1 : -1) +
+                                    mentionList.length) %
+                                  mentionList.length,
+                              );
+                              return;
+                            }
+                            if (
+                              (e.key === "Enter" || e.key === "Tab") &&
+                              !e.nativeEvent.isComposing
+                            ) {
+                              e.preventDefault();
+                              pickMention(
+                                mentionList[mentionIndex] ?? mentionList[0],
+                              );
+                              return;
+                            }
+                            if (e.key === "Escape") {
+                              e.preventDefault();
+                              setMention(null);
+                              return;
+                            }
+                          }
+                          if (
+                            e.key === "ArrowUp" &&
+                            !draft &&
+                            !pendingFiles.length &&
+                            !e.shiftKey &&
+                            !e.nativeEvent.isComposing
+                          ) {
+                            const mine = [...chat.messages]
+                              .reverse()
+                              .find(
+                                (m) =>
+                                  m.userId === session.user.id &&
+                                  !m.status &&
+                                  !m.deletedAt,
+                              );
+                            if (mine) {
+                              e.preventDefault();
+                              window.dispatchEvent(
+                                new CustomEvent("gather:edit-message", {
+                                  detail: mine.id,
+                                }),
+                              );
+                              return;
+                            }
+                          }
                           const undo = emojiUndo.current;
                           if (
                             (e.ctrlKey || e.metaKey) &&
@@ -2011,16 +2285,22 @@ function Workspace({
                   </div>
                   {group.members.map((p) => (
                     <div className="person-row" key={p.id}>
-                      <Avatar person={p} online={chat.online.includes(p.id)} />
+                      <Avatar
+                        person={p}
+                        online={chat.online.includes(p.id)}
+                        away={chat.away.includes(p.id)}
+                      />
                       <div>
                         <strong>
                           {p.name}
                           {p.id === session.user.id ? " (you)" : ""}
                         </strong>
                         <span>
-                          {chat.online.includes(p.id)
-                            ? "Around"
-                            : "Away for now"}
+                          {!chat.online.includes(p.id)
+                            ? "Offline"
+                            : chat.away.includes(p.id)
+                              ? "Away"
+                              : p.status || "Online"}
                         </span>
                       </div>
                     </div>
@@ -2265,18 +2545,22 @@ function Workspace({
                 : undefined
             }
             onLeave={closeModal}
-            muted={mutedChats.includes(group.id)}
-            onMute={() => {
+            muteChoice={currentMuteChoice(
+              readNotificationPreferences(session),
+              group.id,
+            )}
+            muteText={`Muted ${describeUntil(
+              readNotificationPreferences(session).mutedUntil[group.id] ?? 0,
+            )}`}
+            onMuteChange={(choice) => {
               try {
-                const preferences = readNotificationPreferences(session),
-                  next = preferences.muted.includes(group.id)
-                    ? preferences.muted.filter((id) => id !== group.id)
-                    : [...preferences.muted, group.id];
-                saveNotificationPreferences(session, {
-                  ...preferences,
-                  muted: next,
-                });
-                setMutedChats(next);
+                const next = withMute(
+                  readNotificationPreferences(session),
+                  group.id,
+                  choice,
+                );
+                saveNotificationPreferences(session, next);
+                setMutedChats(activeMutes(next));
               } catch {
                 notify(
                   "Could not save notification settings. Please try again.",
@@ -2299,7 +2583,12 @@ function Workspace({
               onSaved={async (info) => {
                 await onSession({
                   ...session,
-                  user: { id: self.id, name: self.name, ...info },
+                  user: {
+                    id: self.id,
+                    name: self.name,
+                    status: session.user.status,
+                    ...info,
+                  },
                 });
               }}
               onBusy={setAvatarBusy}
@@ -2335,6 +2624,52 @@ function Workspace({
               </button>
             </div>
           </form>
+          {chat.capabilities.includes("presence-status-v1") && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void action(async () => {
+                  const user = await api<Person>(session, "/api/profile", {
+                    method: "POST",
+                    body: JSON.stringify({
+                      name: session.user.name,
+                      status: profileStatus,
+                    }),
+                  });
+                  await onSession({ ...session, user });
+                  notify(
+                    profileStatus.trim()
+                      ? "Your status has been updated."
+                      : "Your status has been cleared.",
+                  );
+                });
+              }}
+            >
+              <label htmlFor="profile-status">Status message</label>
+              <div className="input-action">
+                <input
+                  id="profile-status"
+                  value={profileStatus}
+                  onChange={(e) => setProfileStatus(e.target.value)}
+                  maxLength={60}
+                  placeholder="Online"
+                />
+                <button
+                  className="button secondary"
+                  aria-label="Save status"
+                  disabled={
+                    busy || profileStatus.trim() === (session.user.status ?? "")
+                  }
+                >
+                  Save
+                </button>
+              </div>
+              <p className="field-hint">
+                Friends see this under your name. You show as Away after a few
+                idle minutes.
+              </p>
+            </form>
+          )}
           <div className="settings-block">
             <label htmlFor="appearance">Appearance</label>
             <select
@@ -2347,6 +2682,7 @@ function Workspace({
               <option value="light">Light</option>
             </select>
           </div>
+          <DesktopSettings />
           <div className="settings-block">
             <label>Connected to</label>
             <div className="server-display">
@@ -2429,6 +2765,14 @@ function Workspace({
             <span>Files on this device</span>
             <ArrowRight size={15} />
           </button>
+          <button
+            className="settings-row"
+            onClick={() => setModal("shortcuts")}
+          >
+            <Keyboard size={18} />
+            <span>Keyboard shortcuts</span>
+            <ArrowRight size={15} />
+          </button>
           <div className="settings-footer">
             <span>Gather {version}</span>
             <button
@@ -2445,6 +2789,15 @@ function Workspace({
             </button>
           </div>
           <UpdateSettings busy={updateBusy} />
+          {chat.capabilities.includes("account-delete-v1") && (
+            <DeleteAccount
+              session={session}
+              onDeleted={async () => {
+                call.leave();
+                await onSession(null);
+              }}
+            />
+          )}
           <p className="field-hint">
             Emoji artwork:{" "}
             <a href="https://github.com/EmojiTwo/emojitwo">EmojiTwo</a> · CC BY
@@ -2458,6 +2811,15 @@ function Workspace({
               : "A new sign-in creates a new profile."}
           </p>
           {formError && <p className="form-error">{formError}</p>}
+        </Modal>
+      )}
+      {modal === "shortcuts" && (
+        <Modal
+          title="Keyboard shortcuts"
+          onClose={closeModal}
+          onBack={settingsParent ? backToSettings : undefined}
+        >
+          <ShortcutsHelp />
         </Modal>
       )}
       {modal === "identity" && (

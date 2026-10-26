@@ -41,6 +41,8 @@ const capabilities = [
   "sync-generation-v1",
   "outbox-control-v1",
   "call-ring-v1",
+  "presence-status-v1",
+  "account-delete-v1",
 ];
 
 // Hosting adapters supply SQLite and event delivery; product logic is portable.
@@ -58,7 +60,7 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
     if (typeof token !== "string" || token.length > 200) return undefined;
     const row = db
       .prepare(
-        "SELECT u.id,u.name,s.tokenHash,s.createdAt,COALESCE(d.lastSeen,0) AS lastSeen FROM sessions s JOIN users u ON s.userId=u.id LEFT JOIN devices d ON d.tokenHash=s.tokenHash WHERE s.tokenHash=?",
+        "SELECT u.id,u.name,u.status,s.tokenHash,s.createdAt,COALESCE(d.lastSeen,0) AS lastSeen FROM sessions s JOIN users u ON s.userId=u.id LEFT JOIN devices d ON d.tokenHash=s.tokenHash WHERE s.tokenHash=?",
       )
       .get(hash(token));
     if (!row) return undefined;
@@ -66,7 +68,12 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
       db.prepare(
         "INSERT INTO devices VALUES (?,?,?,?) ON CONFLICT(tokenHash) DO UPDATE SET lastSeen=excluded.lastSeen",
       ).run(row.tokenHash, "Existing device", row.createdAt, Date.now());
-    return { id: row.id, name: row.name, ...avatars.info("user", row.id) };
+    return {
+      id: row.id,
+      name: row.name,
+      status: row.status,
+      ...avatars.info("user", row.id),
+    };
   };
   const deviceLabel = (body) =>
     body.deviceName === undefined
@@ -220,10 +227,16 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
     ...avatars.info("group", id),
     members: db
       .prepare(
-        "SELECT u.id,u.name FROM users u JOIN memberships m ON u.id=m.userId WHERE m.groupId=? ORDER BY u.createdAt",
+        "SELECT u.id,u.name,u.status FROM users u JOIN memberships m ON u.id=m.userId WHERE m.groupId=? ORDER BY u.createdAt",
       )
       .all(id)
       .map((person) => ({ ...person, ...avatars.info("user", person.id) })),
+    reads: Object.fromEntries(
+      db
+        .prepare("SELECT userId,sequence FROM read_marks WHERE groupId=?")
+        .all(id)
+        .map((row) => [row.userId, row.sequence]),
+    ),
     lastMessage: enrich(
       db
         .prepare(
@@ -292,6 +305,22 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
     for (const [key, r] of [...rings])
       if (r.groupId === groupId) endRing(key, null);
   };
+  // Away is a hint from the app (no input for a few minutes). It lives in
+  // memory only, so a restart simply shows everyone as active again.
+  const awayConnections = new Set();
+  const isOnline = (userId) =>
+    Boolean(db.prepare("SELECT 1 FROM connections WHERE userId=?").get(userId));
+  const isAway = (userId) => {
+    const rows = db
+      .prepare("SELECT id FROM connections WHERE userId=?")
+      .all(userId);
+    return rows.length > 0 && rows.every((r) => awayConnections.has(r.id));
+  };
+  const presenceOf = (userId) => ({
+    userId,
+    online: isOnline(userId),
+    away: isAway(userId),
+  });
   const stateFor = (userId) => {
     const ids = groupIds(userId);
     const people = new Set(
@@ -306,6 +335,7 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
             .map((r) => r.userId),
         ),
       ].filter((id) => people.has(id)),
+      awayIds: [...people].filter((id) => isAway(id)),
       voice: Object.fromEntries(ids.map((id) => [id, voiceState(id).userIds])),
     };
   };
@@ -313,12 +343,7 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
     const group = getGroup(id);
     emitGroup(id, "group", group);
     for (const p of group.members)
-      emitGroup(id, "presence", {
-        userId: p.id,
-        online: Boolean(
-          db.prepare("SELECT 1 FROM connections WHERE userId=?").get(p.id),
-        ),
-      });
+      emitGroup(id, "presence", presenceOf(p.id));
     return group;
   };
   const makeGroup = (name, userId) => {
@@ -455,6 +480,7 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
       .get(id);
     db.prepare("DELETE FROM voices WHERE connectionId=?").run(id);
     db.prepare("DELETE FROM connections WHERE id=?").run(id);
+    awayConnections.delete(id);
     if (v) settleRings(v.groupId);
     groupIds(c.userId).forEach((groupId) =>
       emitGroup(groupId, "typing", {
@@ -465,10 +491,9 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
       }),
     );
     if (v) broadcastVoice(v.groupId);
-    if (!db.prepare("SELECT 1 FROM connections WHERE userId=?").get(c.userId))
-      groupIds(c.userId).forEach((g) =>
-        emitGroup(g, "presence", { userId: c.userId, online: false }),
-      );
+    groupIds(c.userId).forEach((g) =>
+      emitGroup(g, "presence", presenceOf(c.userId)),
+    );
   }
   function claimTicket(ticket) {
     if (typeof ticket !== "string" || ticket.length > 100) return null;
@@ -487,7 +512,7 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
       user.tokenHash,
     );
     groupIds(user.id).forEach((g) =>
-      emitGroup(g, "presence", { userId: user.id, online: true }),
+      emitGroup(g, "presence", presenceOf(user.id)),
     );
     return { connectionId: id, ...stateFor(user.id) };
   }
@@ -515,6 +540,40 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
         name: user.name,
         active: data.active === true,
       });
+      return { ok: true };
+    }
+    if (event === "presence:set") {
+      const was = isAway(c.userId);
+      if (data.away === true) awayConnections.add(connectionId);
+      else awayConnections.delete(connectionId);
+      if (was !== isAway(c.userId))
+        groupIds(c.userId).forEach((g) =>
+          emitGroup(g, "presence", presenceOf(c.userId)),
+        );
+      return { ok: true };
+    }
+    if (event === "read") {
+      member(data.groupId, c.userId);
+      const top = db
+        .prepare("SELECT MAX(sequence) AS n FROM messages WHERE groupId=?")
+        .get(data.groupId).n;
+      const sequence = Number.isSafeInteger(data.sequence)
+        ? Math.min(data.sequence, top ?? 0)
+        : 0;
+      const before =
+        db
+          .prepare("SELECT sequence FROM read_marks WHERE groupId=? AND userId=?")
+          .get(data.groupId, c.userId)?.sequence ?? 0;
+      if (sequence > before) {
+        db.prepare(
+          "INSERT INTO read_marks VALUES (?,?,?) ON CONFLICT(groupId,userId) DO UPDATE SET sequence=excluded.sequence",
+        ).run(data.groupId, c.userId, sequence);
+        emitGroup(data.groupId, "read", {
+          groupId: data.groupId,
+          userId: c.userId,
+          sequence,
+        });
+      }
       return { ok: true };
     }
     if (event === "voice:join") {
@@ -827,7 +886,7 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
       const user = { id: randomUUID(), name };
       const token = randomBytes(32).toString("base64url");
       db.transaction(() => {
-        db.prepare("INSERT INTO users VALUES (?,?,?)").run(
+        db.prepare("INSERT INTO users (id,name,createdAt) VALUES (?,?,?)").run(
           user.id,
           name,
           Date.now(),
@@ -1422,12 +1481,34 @@ export function createDomain(db, env = {}, events = {}, services = {}) {
     }
     if (method === "POST" && path === "/api/profile") {
       const name = clean(body.name, "Your name", 32);
+      const status =
+        body.status === undefined
+          ? undefined
+          : typeof body.status === "string"
+            ? body.status.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 60)
+            : (() => {
+                throw problem(400, "Your status must be text.");
+              })();
       db.prepare("UPDATE users SET name=? WHERE id=?").run(name, user.id);
+      if (status !== undefined)
+        db.prepare("UPDATE users SET status=? WHERE id=?").run(status, user.id);
       for (const id of groupIds(user.id)) {
         changedGroup(id);
         broadcastVoice(id);
       }
-      return { id: user.id, name, ...avatars.info("user", user.id) };
+      return {
+        id: user.id,
+        name,
+        status:
+          status ??
+          db.prepare("SELECT status FROM users WHERE id=?").get(user.id).status,
+        ...avatars.info("user", user.id),
+      };
+    }
+    if (method === "POST" && path === "/api/account/delete") {
+      if (body.confirm !== "delete my account")
+        throw problem(400, 'Type "delete my account" to confirm.');
+      return moderation.deleteAccount(user.id);
     }
     if (method === "POST" && path === "/api/sign-out") {
       revokeSession(hash(token));

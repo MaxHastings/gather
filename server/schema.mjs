@@ -100,8 +100,15 @@ const migrations = new Map([
     CREATE INDEX activity_log_ref ON activity_log(ref);
   `,
   ],
+  [
+    12,
+    `
+    ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT '';
+    CREATE TABLE read_marks (groupId TEXT NOT NULL REFERENCES groups(id),userId TEXT NOT NULL REFERENCES users(id),sequence INTEGER NOT NULL,PRIMARY KEY(groupId,userId));
+  `,
+  ],
 ]);
-export const LATEST_SCHEMA_VERSION = 11;
+export const LATEST_SCHEMA_VERSION = 12;
 const run = (db, source) => {
   // Keep migrations as individual statements; complex triggers require their
   // own explicit migration implementation rather than naive SQL splitting.
