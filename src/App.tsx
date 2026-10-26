@@ -83,6 +83,7 @@ import { NotificationSettings } from "./NotificationSettings";
 import { UpdateBanner, UpdateSettings } from "./Updates";
 import { useDismissable } from "./useDismissable";
 import { historyScope, history as localHistory } from "./history";
+import { showUnreadAttention } from "./attention";
 import { downloadArchive, exportArchive } from "./archive";
 import type { Group, Person, Session, Message } from "./types";
 import { version } from "../package.json";
@@ -1130,6 +1131,14 @@ function Workspace({
       window.removeEventListener("gather:history-updated", changed);
     };
   }, [groupIdsKey, lastRead, session.server, session.user.id]);
+  const totalUnread = Object.entries(unread).reduce(
+    (sum, [id, count]) => (mutedChats.includes(id) ? sum : sum + count),
+    0,
+  );
+  useEffect(() => {
+    showUnreadAttention(totalUnread);
+  }, [totalUnread]);
+  useEffect(() => () => showUnreadAttention(0), []);
   useEffect(() => {
     setFormError("");
     setCopied(false);
@@ -1275,6 +1284,7 @@ function Workspace({
                 className={cx(
                   "chat-item",
                   chat.selected === g.id && "selected",
+                  unread[g.id] > 0 && "unread",
                 )}
                 onClick={() => chooseChat(g.id)}
               >
@@ -1308,7 +1318,12 @@ function Workspace({
                   </span>
                 </span>
                 {unread[g.id] ? (
-                  <span className="unread-dot" aria-label="Unread messages" />
+                  <span
+                    className="unread-dot unread-count"
+                    aria-label={`${unread[g.id]} unread ${unread[g.id] === 1 ? "message" : "messages"}`}
+                  >
+                    {unread[g.id] > 9 ? "9+" : unread[g.id]}
+                  </span>
                 ) : (
                   <span className="chat-item-time">
                     {g.lastMessage

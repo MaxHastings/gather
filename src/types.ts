@@ -98,6 +98,7 @@ declare global {
       copyInvite: (value: string) => Promise<void>;
       onToggleMute: (callback: () => void) => () => void;
       setInCall: (active: boolean) => Promise<boolean>;
+      setUnreadCount?: (count: number) => Promise<void>;
       history: (command: unknown) => Promise<unknown>;
       media: (command: unknown) => Promise<unknown>;
       notificationsSupported: () => Promise<boolean>;

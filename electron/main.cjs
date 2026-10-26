@@ -11,6 +11,7 @@ const {
   nativeTheme,
   safeStorage,
   Notification,
+  nativeImage,
 } = require("electron");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
@@ -37,6 +38,20 @@ let notifications;
 let updates;
 let updateBusy = true;
 let inCall = false;
+// 16x16 red dot for the Windows taskbar overlay.
+function unreadOverlay() {
+  const size = 16,
+    buffer = Buffer.alloc(size * size * 4);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const d = Math.hypot(x - 7.5, y - 7.5);
+      if (d > 7) continue;
+      const i = (y * size + x) * 4;
+      const ring = d > 5.5;
+      buffer.set(ring ? [255, 255, 255, 255] : [77, 72, 229, 255], i); // BGRA
+    }
+  return nativeImage.createFromBitmap(buffer, { width: size, height: size });
+}
 let downloads = 0;
 let quitting = false;
 app.on("before-quit", () => {
@@ -405,6 +420,23 @@ else {
               ),
             )
           : true;
+      });
+      let lastUnread = 0;
+      ipcMain.handle("unread:set", (event, value) => {
+        if (!validSender(event)) return;
+        const count = Number.isInteger(value)
+          ? Math.min(Math.max(value, 0), 999)
+          : 0;
+        if (process.platform === "win32") {
+          win?.setOverlayIcon(
+            count > 0 ? unreadOverlay() : null,
+            count > 0 ? `${count} unread` : "",
+          );
+        } else app.setBadgeCount(count);
+        // Flash the taskbar once when something new arrives in the background.
+        if (count > lastUnread && win && !win.isFocused()) win.flashFrame(true);
+        if (count === 0) win?.flashFrame(false);
+        lastUnread = count;
       });
       ipcMain.handle("text:copy", (event, value) => {
         if (

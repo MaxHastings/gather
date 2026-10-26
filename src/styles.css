@@ -463,6 +463,24 @@ label .optional {
   width: 7px;
   flex-shrink: 0;
 }
+.unread-dot.unread-count {
+  background: #e5484d;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  height: 16px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  text-align: center;
+  box-sizing: border-box;
+}
+.chat-item.unread .chat-item-name,
+.chat-item.unread .chat-preview {
+  font-weight: 700;
+  color: var(--text, inherit);
+}
 .empty-search {
   padding: 18px 12px;
   color: var(--muted);
