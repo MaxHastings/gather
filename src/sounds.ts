@@ -526,10 +526,17 @@ async function play(
   );
 }
 
+// Do Not Disturb: incoming alerts stay quiet, your own actions still sound.
+let silenced = false;
+const quietWhenSilenced: SoundEvent[] = ["message", "ring", "join", "leave"];
+export function setSoundsSilenced(value: boolean) {
+  silenced = value;
+}
 const lastPlayed = new Map<SoundEvent, number>();
 /** Plays one event's sound if sounds are enabled for it. Never throws. */
 export function playSound(event: SoundEvent) {
   try {
+    if (silenced && quietWhenSilenced.includes(event)) return;
     const prefs = readSoundPreferences();
     if (!prefs.enabled || prefs.off.includes(event) || prefs.volume === 0)
       return;
@@ -571,7 +578,12 @@ export function playRing() {
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const prefs = readSoundPreferences();
-  if (!prefs.enabled || prefs.off.includes("ring") || prefs.volume === 0)
+  if (
+    silenced ||
+    !prefs.enabled ||
+    prefs.off.includes("ring") ||
+    prefs.volume === 0
+  )
     return () => {};
   const pack = soundPacks.find((p) => p.id === prefs.pack) ?? soundPacks[0];
   const gap = (pack.sounds.ring.loop ?? 2) * 1000;

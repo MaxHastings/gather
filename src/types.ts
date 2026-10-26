@@ -1,5 +1,9 @@
 export type AvatarInfo = { avatarId?: string; avatarRevision?: number };
-export type Person = { id: string; name: string } & AvatarInfo;
+export type Person = {
+  id: string;
+  name: string;
+  status?: string;
+} & AvatarInfo;
 export type Attachment = {
   id: string;
   name: string;
@@ -45,6 +49,7 @@ export type Group = AvatarInfo & {
   inviteCode: string;
   createdAt: number;
   members: Person[];
+  reads?: Record<string, number>;
   lastMessage: Message | null;
 };
 export type Bootstrap = {
@@ -58,6 +63,7 @@ export type Bootstrap = {
   user: Person;
   groups: Group[];
   onlineIds: string[];
+  awayIds?: string[];
   voice: Record<string, string[]>;
   voiceAvailable: boolean;
   voiceLimit?: number;
@@ -98,6 +104,21 @@ declare global {
       copyInvite: (value: string) => Promise<void>;
       onToggleMute: (callback: () => void) => () => void;
       setInCall: (active: boolean) => Promise<boolean>;
+      getDesktopPrefs?: () => Promise<{
+        closeToTray: boolean;
+        startOnLogin: boolean;
+        supportsTray: boolean;
+        supportsStartOnLogin: boolean;
+      }>;
+      setDesktopPrefs?: (patch: {
+        closeToTray?: boolean;
+        startOnLogin?: boolean;
+      }) => Promise<{
+        closeToTray: boolean;
+        startOnLogin: boolean;
+        supportsTray: boolean;
+        supportsStartOnLogin: boolean;
+      }>;
       setUnreadCount?: (count: number) => Promise<void>;
       history: (command: unknown) => Promise<unknown>;
       media: (command: unknown) => Promise<unknown>;

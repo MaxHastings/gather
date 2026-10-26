@@ -1,12 +1,67 @@
 import type { Group, Message, Session } from "./types";
 import { historyScope } from "./history";
 import { notificationCandidate } from "../server/notification-policy.mjs";
+import { mentionsUser } from "../server/mentions.mjs";
 
 export type NotificationPreferences = {
   enabled: boolean;
   preview: boolean;
+  /** Chats muted until the person unmutes them. */
   muted: string[];
+  /** Chats muted for a while: chat id to the time (ms) the mute ends. */
+  mutedUntil: Record<string, number>;
+  /** Do Not Disturb ends at this time (ms); 0 when off. */
+  dndUntil: number;
 };
+/** Used for "until I turn it off". */
+export const FOREVER = 8_000_000_000_000_000;
+export const isChatMuted = (
+  preferences: NotificationPreferences,
+  groupId: string,
+  now = Date.now(),
+) =>
+  preferences.muted.includes(groupId) ||
+  (preferences.mutedUntil[groupId] ?? 0) > now;
+export const isDoNotDisturb = (
+  preferences: NotificationPreferences,
+  now = Date.now(),
+) => preferences.dndUntil > now;
+export const activeMutes = (
+  preferences: NotificationPreferences,
+  now = Date.now(),
+) => [
+  ...new Set([
+    ...preferences.muted,
+    ...Object.entries(preferences.mutedUntil)
+      .filter(([, until]) => until > now)
+      .map(([id]) => id),
+  ]),
+];
+export function describeUntil(until: number, now = Date.now()) {
+  if (until <= now) return "";
+  if (until >= FOREVER) return "until you turn it off";
+  const date = new Date(until);
+  const time = date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return date.toDateString() === new Date(now).toDateString()
+    ? `until ${time}`
+    : `until ${date.toLocaleDateString([], { weekday: "short" })} ${time}`;
+}
+/** The end time for a "mute for…" choice, or 0 to clear it. */
+export function muteEnd(choice: string, now = Date.now()) {
+  if (choice === "1h") return now + 3_600_000;
+  if (choice === "8h") return now + 8 * 3_600_000;
+  if (choice === "tomorrow") {
+    const next = new Date(now);
+    next.setDate(next.getDate() + 1);
+    next.setHours(8, 0, 0, 0);
+    return next.getTime();
+  }
+  if (choice === "forever") return FOREVER;
+  return 0;
+}
 const preferenceKey = (scope: string) => `gather.notifications.${scope}`;
 const browserNotifications = new Map<string, Notification>();
 type SeenNotifications = { ids: string[]; last: Record<string, number> };
@@ -74,9 +129,32 @@ export function readNotificationPreferences(
             .filter((s: unknown) => typeof s === "string")
             .slice(0, 1000)
         : [],
+      mutedUntil:
+        value?.mutedUntil && typeof value.mutedUntil === "object"
+          ? Object.fromEntries(
+              (
+                Object.entries(value.mutedUntil) as [string, unknown][]
+              )
+                .filter(
+                  ([, until]) =>
+                    typeof until === "number" && until > Date.now(),
+                )
+                .slice(0, 1000),
+            ) as Record<string, number>
+          : {},
+      dndUntil:
+        typeof value?.dndUntil === "number" && value.dndUntil > Date.now()
+          ? value.dndUntil
+          : 0,
     };
   } catch {
-    return { enabled: Boolean(window.desktop), preview: true, muted: [] };
+    return {
+      enabled: Boolean(window.desktop),
+      preview: true,
+      muted: [],
+      mutedUntil: {},
+      dndUntil: 0,
+    };
   }
 }
 export function clearMessageNotifications(session: Session) {
@@ -97,6 +175,7 @@ export function saveNotificationPreferences(
     JSON.stringify(value),
   );
   clearMessageNotifications(session);
+  window.dispatchEvent(new Event("gather:notification-preferences"));
 }
 export function createMessageNotifier(
   session: Session,
@@ -130,6 +209,7 @@ export function createMessageNotifier(
             document.visibilityState === "visible" && document.hasFocus(),
           preferences: readNotificationPreferences(session),
           now,
+          mentioned: mentionsUser(message.body, session.user.name),
         });
         const throttled = now - (memory.last[message.groupId] || 0) < 3000;
         if (candidate && !throttled) memory.last[message.groupId] = now;

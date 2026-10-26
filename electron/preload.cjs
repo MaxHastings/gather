@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld("desktop", {
   copyText: (value) => ipcRenderer.invoke("text:copy", value),
   copyInvite: (value) => ipcRenderer.invoke("invite:copy", value),
   setInCall: (active) => ipcRenderer.invoke("call:active", active === true),
+  getDesktopPrefs: () => ipcRenderer.invoke("desktop:prefs:get"),
+  setDesktopPrefs: (patch) => ipcRenderer.invoke("desktop:prefs:set", patch),
   setUnreadCount: (count) => ipcRenderer.invoke("unread:set", count),
   history: (command) => ipcRenderer.invoke("history:execute", command),
   media: (command) => ipcRenderer.invoke("media:execute", command),

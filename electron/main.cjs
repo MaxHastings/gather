@@ -12,10 +12,15 @@ const {
   safeStorage,
   Notification,
   nativeImage,
+  Tray,
+  Menu,
+  dialog,
 } = require("electron");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { createWindowAccess } = require("./window-access.cjs");
+const { createDesktopPrefs } = require("./desktop-prefs.cjs");
+const { createTray } = require("./tray.cjs");
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -38,6 +43,9 @@ let notifications;
 let updates;
 let updateBusy = true;
 let inCall = false;
+let desktopPrefs;
+let tray;
+let trayOk = false;
 // 16x16 red dot for the Windows taskbar overlay.
 function unreadOverlay() {
   const size = 16,
@@ -167,8 +175,100 @@ else {
         },
       });
       const createdWindow = win;
+      desktopPrefs = createDesktopPrefs(
+        path.join(app.getPath("userData"), "desktop.json"),
+      );
+      const supportsStartOnLogin =
+        app.isPackaged &&
+        !testing &&
+        !process.env.PORTABLE_EXECUTABLE_DIR &&
+        ["win32", "darwin"].includes(process.platform);
+      const showWindow = () =>
+        access.withWindow((window) => {
+          if (window.isMinimized()) window.restore();
+          window.show();
+          window.focus();
+        });
+      const applyPrefs = (patch) => {
+        const next = desktopPrefs.set(patch);
+        if (supportsStartOnLogin)
+          app.setLoginItemSettings({
+            openAtLogin: next.startOnLogin,
+            args: next.startOnLogin ? ["--hidden"] : [],
+          });
+        tray?.refresh();
+        return next;
+      };
+      if (!testing && process.platform !== "darwin") {
+        try {
+          tray = createTray(
+            { Tray, Menu, nativeImage },
+            {
+              show: showWindow,
+              prefs: () => desktopPrefs.get(),
+              setPrefs: applyPrefs,
+              supportsStartOnLogin,
+              quit: () => {
+                if (!inCall) return app.quit();
+                void dialog
+                  .showMessageBox({
+                    type: "question",
+                    message: "Quit Gather?",
+                    detail: "This will end your voice call.",
+                    buttons: ["Keep open", "Quit"],
+                    defaultId: 0,
+                    cancelId: 0,
+                  })
+                  .then(({ response }) => response === 1 && app.quit());
+              },
+            },
+          );
+          trayOk = true;
+        } catch {
+          trayOk = false; // No tray (some Linux desktops): closing quits.
+        }
+      }
+      // Mac keeps the app alive in the Dock; Windows and Linux need the tray.
+      const keepRunning = () =>
+        desktopPrefs.get().closeToTray &&
+        (process.platform === "darwin" || trayOk);
+      app.on("activate", showWindow);
+      ipcMain.handle("desktop:prefs:get", (event) => {
+        if (!validSender(event)) throw new Error("Desktop access denied.");
+        return {
+          ...desktopPrefs.get(),
+          supportsTray: process.platform === "darwin" || trayOk,
+          supportsStartOnLogin,
+        };
+      });
+      ipcMain.handle("desktop:prefs:set", (event, patch) => {
+        if (!validSender(event) || typeof patch !== "object" || !patch)
+          throw new Error("Desktop access denied.");
+        return {
+          ...applyPrefs(patch),
+          supportsTray: process.platform === "darwin" || trayOk,
+          supportsStartOnLogin,
+        };
+      });
       let confirmingClose = false;
       createdWindow.on("close", (event) => {
+        if (!quitting && !testing && keepRunning()) {
+          event.preventDefault();
+          createdWindow.hide();
+          if (!desktopPrefs.get().trayHintShown) {
+            desktopPrefs.set({ trayHintShown: true });
+            if (Notification.isSupported())
+              new Notification({
+                title: "Gather is still running",
+                body:
+                  process.platform === "darwin"
+                    ? "Click the Gather icon in the Dock to open it again."
+                    : "Find it in the tray near the clock. Right-click it to quit.",
+                icon: path.join(__dirname, "icon.png"),
+              }).show();
+          }
+          return;
+        }
         if (quitting || testing || !(inCall || updateBusy || downloads > 0))
           return;
         event.preventDefault();
@@ -203,9 +303,16 @@ else {
       win.webContents.on("will-navigate", (event, url) => {
         if (!trusted(url)) event.preventDefault();
       });
+      const startHidden =
+        process.argv.includes("--hidden") ||
+        (process.platform === "darwin" &&
+          app.getLoginItemSettings().wasOpenedAtLogin);
       win.once(
         "ready-to-show",
-        () => !testing && access.withWindow((window) => window.show()),
+        () =>
+          !testing &&
+          !(startHidden && keepRunning()) &&
+          access.withWindow((window) => window.show()),
       );
       const { createHistoryStore } = await import(
         pathToFileURL(path.join(__dirname, "history.mjs")).href
@@ -437,6 +544,7 @@ else {
         if (count > lastUnread && win && !win.isFocused()) win.flashFrame(true);
         if (count === 0) win?.flashFrame(false);
         lastUnread = count;
+        tray?.setUnread(count);
       });
       ipcMain.handle("text:copy", (event, value) => {
         if (

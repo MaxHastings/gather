@@ -13,11 +13,7 @@ export function Landing({
     <main className="landing">
       <section className="landing-hero">
         <div className="brand landing-brand">
-          <span className="brand-mark">
-            <MessageCircle size={23} fill="currentColor" strokeWidth={0} />
-            <i />
-            <i />
-          </span>
+          <img className="brand-mark" src="/icon-192.png" alt="" />
           <span>
             gather<span className="brand-period">.</span>
           </span>

@@ -441,6 +441,84 @@ export function createModeration({
       blockedIps: blocked,
     };
   }
+  // Self-service deletion: messages and files go, the person leaves every chat
+  // (ownership passes to the longest-standing member), and the name is wiped.
+  // The bare user row stays only because old rows still point at it.
+  async function deleteAccount(userId) {
+    const user = db.prepare("SELECT id FROM users WHERE id=?").get(userId);
+    if (!user) throw problem(404, "That account was not found.");
+    const tokens = db
+      .prepare("SELECT tokenHash FROM sessions WHERE userId=?")
+      .all(userId);
+    const groups = db
+      .prepare("SELECT groupId FROM memberships WHERE userId=?")
+      .all(userId)
+      .map((r) => r.groupId);
+    for (const m of db
+      .prepare("SELECT id FROM messages WHERE userId=? AND deletedAt IS NULL")
+      .all(userId))
+      await removeMessage(m.id);
+    await removeFiles(
+      db
+        .prepare(
+          "SELECT key FROM media_uploads WHERE userId=? AND state<>'cancelled'",
+        )
+        .all(userId),
+    );
+    await removeFiles(
+      db.prepare("SELECT key FROM avatar_images WHERE userId=?").all(userId),
+    );
+    db.transaction(() => {
+      for (const groupId of groups) {
+        const control = db
+          .prepare("SELECT * FROM group_controls WHERE groupId=?")
+          .get(groupId);
+        db.prepare("DELETE FROM memberships WHERE groupId=? AND userId=?").run(
+          groupId,
+          userId,
+        );
+        db.prepare(
+          "DELETE FROM voices WHERE groupId=? AND connectionId IN (SELECT id FROM connections WHERE userId=?)",
+        ).run(groupId, userId);
+        const heir = db
+          .prepare(
+            "SELECT userId FROM memberships WHERE groupId=? ORDER BY rowid LIMIT 1",
+          )
+          .get(groupId)?.userId;
+        db.prepare(
+          "UPDATE group_controls SET ownerId=?,revision=revision+1 WHERE groupId=?",
+        ).run(
+          control.ownerId === userId ? (heir ?? null) : control.ownerId,
+          groupId,
+        );
+        // With nobody left, the old invite link must stop working.
+        if (!heir)
+          db.prepare("UPDATE groups SET inviteCode=? WHERE id=?").run(
+            randomBytes(18).toString("base64url"),
+            groupId,
+          );
+        db.prepare(
+          "INSERT INTO group_departures VALUES (?,?,'left',?) ON CONFLICT(groupId,userId) DO UPDATE SET access='left',revision=excluded.revision",
+        ).run(groupId, userId, control.revision + 1);
+      }
+      db.prepare("DELETE FROM message_reactions WHERE userId=?").run(userId);
+      db.prepare("DELETE FROM read_marks WHERE userId=?").run(userId);
+      db.prepare("DELETE FROM recovery_codes WHERE userId=?").run(userId);
+      db.prepare("DELETE FROM avatar_images WHERE userId=?").run(userId);
+      db.prepare(
+        "UPDATE avatar_slots SET id=NULL,revision=revision+1 WHERE kind='user' AND targetId=?",
+      ).run(userId);
+      db.prepare("UPDATE users SET name='Deleted person',status='' WHERE id=?").run(
+        userId,
+      );
+    });
+    for (const row of tokens) revokeSession(row.tokenHash);
+    for (const groupId of groups) {
+      changedGroup(groupId);
+      broadcastVoice(groupId);
+    }
+    return { ok: true };
+  }
   function unbanUser(userId) {
     db.prepare("DELETE FROM bans WHERE userId=?").run(userId);
     return {
@@ -534,6 +612,7 @@ export function createModeration({
     removeFile,
     removeMessage,
     banUser,
+    deleteAccount,
     unbanUser,
     removeGroup,
   };

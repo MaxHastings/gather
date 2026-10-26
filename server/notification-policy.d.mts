@@ -6,6 +6,13 @@ export function notificationCandidate(input: {
   group?: Group;
   selected: string;
   focused: boolean;
-  preferences: { enabled: boolean; preview: boolean; muted: string[] };
+  preferences: {
+    enabled: boolean;
+    preview: boolean;
+    muted: string[];
+    mutedUntil?: Record<string, number>;
+    dndUntil?: number;
+  };
   now: number;
+  mentioned?: boolean;
 }): { groupId: string; messageId: string; title: string; body: string } | null;

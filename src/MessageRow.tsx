@@ -8,6 +8,7 @@ import { AttachmentView } from "./Attachments";
 import { MessageActions } from "./MessageActions";
 import { MessageReactions } from "./MessageReactions";
 import { historyScope } from "./history";
+import { mentionsUser } from "../server/mentions.mjs";
 import type { Message, Session, Person } from "./types";
 const cx = (...v: (string | false | undefined)[]) =>
   v.filter(Boolean).join(" ");
@@ -57,6 +58,8 @@ export const MessageRow = memo(function MessageRow({
   day,
   firstUnread,
   highlighted,
+  names,
+  seenBy,
 }: {
   message: Message;
   grouped: boolean;
@@ -75,8 +78,12 @@ export const MessageRow = memo(function MessageRow({
   day?: string;
   firstUnread?: boolean;
   highlighted?: boolean;
+  names?: string[];
+  seenBy?: string;
 }) {
   const own = m.userId === session.user.id;
+  const mentioned =
+    !own && !m.deletedAt && mentionsUser(m.body, session.user.name);
   return (
     <>
       {day && (
@@ -94,6 +101,7 @@ export const MessageRow = memo(function MessageRow({
         className={cx(
           "message-row",
           highlighted && "message-highlight",
+          mentioned && "mentioned",
           own && "own",
           grouped && "grouped",
         )}
@@ -150,7 +158,11 @@ export const MessageRow = memo(function MessageRow({
             {m.deletedAt ? (
               <span className="message-deleted">Message deleted</span>
             ) : (
-              <MessageText text={m.body} />
+              <MessageText
+                text={m.body}
+                names={names}
+                self={session.user.name}
+              />
             )}
             {m.editedAt && !m.deletedAt && (
               <small
@@ -214,6 +226,7 @@ export const MessageRow = memo(function MessageRow({
             <span className="delivery-state">
               <CheckCheck size={12} />
               Saved to chat
+              {seenBy ? ` · Seen by ${seenBy}` : ""}
             </span>
           ) : null}
         </div>

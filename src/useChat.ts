@@ -16,8 +16,11 @@ import {
 import {
   createMessageNotifier,
   readNotificationPreferences,
+  isChatMuted,
+  isDoNotDisturb,
 } from "./notifications";
 import { playSound } from "./sounds";
+import { mentionsUser } from "../server/mentions.mjs";
 import { mediaMessageKey } from "../server/media-contract.mjs";
 type Typing = {
   groupId: string;
@@ -70,6 +73,27 @@ export function useChat(session: Session) {
   const [hasNewer, setHasNewer] = useState<Record<string, boolean>>({});
   const [hasMore, setHasMore] = useState<Record<string, boolean>>({});
   const [online, setOnline] = useState<string[]>([]);
+  const [away, setAway] = useState<string[]>([]);
+  // Who has read up to which message, per chat. Only ever moves forward.
+  const [reads, setReads] = useState<Record<string, Record<string, number>>>(
+    {},
+  );
+  const mergeReads = useCallback((incoming: Group[]) => {
+    if (!incoming.some((g) => g.reads)) return;
+    setReads((current) => {
+      const next = { ...current };
+      for (const g of incoming)
+        if (g.reads) {
+          const merged = { ...next[g.id] };
+          for (const [id, n] of Object.entries(g.reads))
+            merged[id] = Math.max(merged[id] ?? 0, n);
+          next[g.id] = merged;
+        }
+      return next;
+    });
+  }, []);
+  const awaySent = useRef(false);
+  const readSent = useRef(new Map<string, number>());
   const [voice, setVoice] = useState<Record<string, string[]>>({});
   const [voiceAvailable, setVoiceAvailable] = useState(false);
   const [voiceLimit, setVoiceLimit] = useState(2);
@@ -657,6 +681,8 @@ export function useChat(session: Session) {
           },
         );
       setOnline(data.onlineIds);
+      setAway(data.awayIds ?? []);
+      mergeReads(data.groups);
       setVoice(data.voice);
       setVoiceAvailable(data.voiceAvailable);
       setVoiceLimit(data.voiceLimit ?? 2);
@@ -756,6 +782,8 @@ export function useChat(session: Session) {
       };
       client.on("connect", () => {
         setConnection("connecting");
+        // A fresh connection starts out active; tell the server if we are not.
+        if (awaySent.current) socket.current?.emit("presence:set", { away: true });
         synchronizeConnection();
       });
       client.on("disconnect", () => {
@@ -788,16 +816,22 @@ export function useChat(session: Session) {
             void notifier.receive(message, changeKind);
             if (
               changeKind === "create" &&
-              message.userId !== session.user.id &&
-              !readNotificationPreferences(session).muted.includes(
-                message.groupId,
+              message.userId !== session.user.id
+            ) {
+              const preferences = readNotificationPreferences(session);
+              // A mention gets through a muted chat, never through Do Not Disturb.
+              if (
+                !isDoNotDisturb(preferences) &&
+                (!isChatMuted(preferences, message.groupId) ||
+                  mentionsUser(message.body, session.user.name))
               )
-            )
-              playSound("message");
+                playSound("message");
+            }
           }
         },
       );
       client.on("group", (group: Group) => {
+        mergeReads([group]);
         if (!syncReady.current) return;
         void saveGroups([group]).catch(() => {
           setError(
@@ -815,25 +849,63 @@ export function useChat(session: Session) {
           );
         },
       );
-      client.on("state", (state: Pick<Bootstrap, "onlineIds" | "voice">) => {
-        setOnline(state.onlineIds);
-        setVoice(state.voice);
-      });
+      client.on(
+        "state",
+        (state: Pick<Bootstrap, "onlineIds" | "awayIds" | "voice">) => {
+          setOnline(state.onlineIds);
+          setAway(state.awayIds ?? []);
+          setVoice(state.voice);
+        },
+      );
       client.on(
         "membership-state",
-        (state: Pick<Bootstrap, "onlineIds" | "voice">) => {
+        (state: Pick<Bootstrap, "onlineIds" | "awayIds" | "voice">) => {
           setOnline(state.onlineIds);
+          setAway(state.awayIds ?? []);
           setVoice(state.voice);
         },
       );
       client.on(
         "presence",
-        ({ userId, online: isOnline }: { userId: string; online: boolean }) =>
+        ({
+          userId,
+          online: isOnline,
+          away: isAway,
+        }: {
+          userId: string;
+          online: boolean;
+          away?: boolean;
+        }) => {
           setOnline((current) =>
             isOnline
               ? [...new Set([...current, userId])]
               : current.filter((id) => id !== userId),
-          ),
+          );
+          setAway((current) =>
+            isOnline && isAway
+              ? [...new Set([...current, userId])]
+              : current.filter((id) => id !== userId),
+          );
+        },
+      );
+      client.on(
+        "read",
+        ({
+          groupId,
+          userId,
+          sequence,
+        }: {
+          groupId: string;
+          userId: string;
+          sequence: number;
+        }) =>
+          setReads((current) => ({
+            ...current,
+            [groupId]: {
+              ...current[groupId],
+              [userId]: Math.max(current[groupId]?.[userId] ?? 0, sequence),
+            },
+          })),
       );
       client.on(
         "voice",
@@ -1125,6 +1197,25 @@ export function useChat(session: Session) {
     select,
     messages: messages[selected] || [],
     online,
+    away,
+    reads,
+    // Tell the chat how far you have read (for "Seen" under your messages).
+    sendRead: (groupId: string, sequence: number) => {
+      if (
+        !capabilities.includes("presence-status-v1") ||
+        !socket.current?.connected ||
+        (readSent.current.get(groupId) ?? 0) >= sequence
+      )
+        return;
+      readSent.current.set(groupId, sequence);
+      socket.current.emit("read", { groupId, sequence });
+    },
+    setAway: (value: boolean) => {
+      if (awaySent.current === value) return;
+      awaySent.current = value;
+      if (capabilities.includes("presence-status-v1"))
+        socket.current?.emit("presence:set", { away: value });
+    },
     voice,
     voiceAvailable,
     voiceLimit,

@@ -89,17 +89,19 @@ export function Avatar({
   person,
   size = "",
   online = false,
+  away = false,
 }: {
   person: Person;
   size?: string;
   online?: boolean;
+  away?: boolean;
 }) {
   const color = [...person.id].reduce((n, c) => n + c.charCodeAt(0), 0) % 5;
   return (
     <span className={`avatar color-${color} ${size}`}>
       {initials(person.name)}
       <AvatarImage id={person.avatarId} />
-      {online && <i className="online-dot" />}
+      {online && <i className={away ? "online-dot away" : "online-dot"} />}
     </span>
   );
 }
