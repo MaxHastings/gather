@@ -212,7 +212,7 @@ try {
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await expect(
     page.locator(".message-row").last().locator(".delivery-state"),
-  ).toHaveText("Saved to chat");
+  ).toHaveText(/^Saved to chat/);
   await openStorage(page);
   await page
     .getByRole("button", { name: "Clear downloaded files", exact: true })

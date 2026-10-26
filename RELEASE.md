@@ -1,13 +1,13 @@
-# Gather 0.4.0
+# Gather 0.4.1
 
-New landing page for visitors without an invite, with honest desktop messaging, Safari/PWA basics and a small public invite preview that names the chat on invite pages.
+The desktop app now has the Gather logo everywhere: the Windows executable, installer, shortcuts and tray, plus the browser tab icon and link previews.
 
-Redesigned emoji picker (category rail, search, recent) and Klipy GIF search in the composer. Calls get a stage with a Chat tab and ring-to-join: ring an absent member, decline, or join. Sound packs and an improved, loudness-matched sound set. Phone layout, scroll-to-latest and landing fixes.
+Closing the window keeps Gather running in the tray so calls and notifications keep working (Quit from the tray menu really quits). There is an option to start Gather when you sign in. The taskbar and tray show an unread count, and unread chats show a count badge.
 
-Per-chat and per-person file quotas of 250 MB apply to new uploads only. Limits otherwise stay: four-person voice, four files per message, 10,000,000 bytes per file and a shared 5,000,000,000-byte private bucket ceiling.
+Chat: @mentions with autocomplete that still notify you in muted chats, Away (after five idle minutes) and a short status line, "Seen by" markers, mute for an hour, eight hours, until tomorrow or until you turn it off, Do Not Disturb, and keyboard shortcuts (Ctrl/Cmd+K, Alt+Up/Down, Ctrl/Cmd+/, Up to edit your last message).
 
-Fixes in this release: own-message actions stay reachable in the narrow chat panel beside a call.
+Account: you can now delete your own account from Settings. This removes your messages and files, removes you from your chats and signs you out everywhere.
 
-Existing installed Windows builds receive authenticated updates and offer a safe restart; portable users update manually. Refresh the web page for the browser client.
+Mac and Linux builds are available from the download page as previews with no auto-update. Windows installs update automatically with a signed update.
 
-Verification: 92 unit/server tests and the full packaged/browser release gate passed before deploy. After deploy, production reports schema 10 with the `call-ring-v1` and `gif-search-v1` capabilities, the download catalog points at 0.4.0 with a matching installer checksum, and pre- and post-deploy backups restore. `verification.json` lists what was not verified (real 0.3.0 NSIS upgrade, updater smoke, scripted ring run, authenticated GIF request on production). Hashes are in `SHA256SUMS.txt`.
+Verification: unit and server tests, the full packaged and browser release check, and pre- and post-deploy backups with restore tests. Production reports schema 12 with the `presence-status-v1` and `account-delete-v1` capabilities. Not verified: the installed shortcut and tray on a real desktop, real 0.4.0 to 0.4.1 auto-update, and downloads on a Mac or Linux machine.
