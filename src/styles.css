@@ -14,6 +14,11 @@
   --surface: #ffffff;
   --raised: #f4f8fc;
   --input: #f7f9fc;
+  --page: #f0f6fb;
+  --card: #ffffff;
+  --card-line: #e1eaf2;
+  --copy: #4a5d73;
+  --heading: #24354a;
 }
 .simple-onboarding {
   align-items: center;
@@ -3094,7 +3099,8 @@ label .optional {
 /* Landing page for visitors without an invite. */
 .landing-shell {
   overflow-y: auto;
-  background: #f0f6fb;
+  background: var(--page);
+  color: var(--heading);
 }
 .landing {
   width: 100%;
@@ -3120,7 +3126,7 @@ label .optional {
   font-size: 17px;
   line-height: 1.5;
   max-width: 52ch;
-  color: #4a5d73;
+  color: var(--copy);
   margin-bottom: 24px;
 }
 .landing-cta {
@@ -3139,7 +3145,7 @@ label .optional {
 .landing-nav-link {
   float: right;
   font-size: 14px;
-  color: #4a5d73;
+  color: var(--copy);
 }
 .landing-actions {
   display: flex;
@@ -3153,8 +3159,9 @@ label .optional {
 }
 .landing-points > div,
 .landing-apps {
-  background: white;
-  border: 1px solid #e1eaf2;
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  color: var(--heading);
   border-radius: 14px;
   padding: 20px;
 }
@@ -3168,13 +3175,43 @@ label .optional {
 }
 .landing-points p,
 .landing-apps p {
-  color: #4a5d73;
+  color: var(--copy);
   line-height: 1.5;
   margin: 0;
 }
 .landing-apps .desktop-download {
   max-width: 350px;
   margin-top: 12px;
+}
+.landing-hero .text-button {
+  font-size: 14px;
+  min-height: 36px;
+}
+@media (max-width: 520px) {
+  .landing {
+    padding-top: 28px;
+    padding-bottom: 40px;
+    gap: 28px;
+  }
+  .landing-brand {
+    font-size: 26px;
+  }
+  .landing-lede {
+    font-size: 16px;
+  }
+  .landing-cta {
+    width: 100%;
+    margin-right: 0;
+  }
+  .landing-actions,
+  .landing-apps .desktop-download {
+    max-width: none;
+    width: 100%;
+  }
+  .landing-actions > .desktop-download,
+  .landing-actions > .desktop-download > a {
+    width: 100%;
+  }
 }
 /* iOS Safari zooms the page when a focused field is under 16px, and the
    home-indicator area would otherwise cover bottom controls. */

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Download Gather</title>
     <meta name="robots" content="index,follow" />
+    <script src="/theme.js"></script>
     <style>
       :root {
         color-scheme: light dark;
@@ -15,13 +16,24 @@
         --link: #1769aa;
       }
       @media (prefers-color-scheme: dark) {
-        :root {
+        :root:not([data-theme="light"]) {
           --bg: #111821;
           --fg: #e0e8f2;
           --muted: #9dadc1;
           --line: #2a3747;
           --link: #64bcec;
         }
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #111821;
+        --fg: #e0e8f2;
+        --muted: #9dadc1;
+        --line: #2a3747;
+        --link: #64bcec;
+      }
+      :root[data-theme="light"] {
+        color-scheme: light;
       }
       body {
         margin: 0;

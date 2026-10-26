@@ -12,6 +12,11 @@
   --surface: #18222f;
   --raised: #202d3e;
   --input: #111c29;
+  --page: #101923;
+  --card: #18222f;
+  --card-line: #2a3a4c;
+  --copy: #a9b8ca;
+  --heading: #e4eef8;
 }
 [data-theme="dark"] body,
 [data-theme="dark"] .app {
