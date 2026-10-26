@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Download Gather</title>
+    <meta name="robots" content="index,follow" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f7f9fc;
+        --fg: #18222f;
+        --muted: #5c6b7d;
+        --line: #d9e1ec;
+        --link: #1769aa;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #111821;
+          --fg: #e0e8f2;
+          --muted: #9dadc1;
+          --line: #2a3747;
+          --link: #64bcec;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          16px/1.6 system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+      }
+      main {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 32px 16px 64px;
+      }
+      h1 {
+        font-size: 28px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 28px 0 6px;
+      }
+      p,
+      li {
+        margin: 6px 0;
+      }
+      ul {
+        padding-left: 22px;
+      }
+      a {
+        color: var(--link);
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      nav {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 24px;
+        font-size: 14px;
+      }
+      footer {
+        margin-top: 40px;
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+      .dl {
+        display: block;
+        margin: 8px 0;
+        padding: 12px 16px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .dl.main {
+        background: var(--link);
+        color: var(--bg);
+        border-color: var(--link);
+      }
+      .dl small {
+        display: block;
+        font-weight: 400;
+        opacity: 0.8;
+      }
+      h2 + .dl {
+        margin-top: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <nav>
+        <a href="/">gather.</a><a href="/terms">Terms</a
+        ><a href="/privacy">Privacy</a>
+      </nav>
+      <h1>Download Gather</h1>
+      <p class="muted">
+        The desktop app is optional. Gather works fully in your browser too.
+      </p>
+      <div id="main"></div>
+      <h2>All downloads</h2>
+      <div id="all"><p class="muted">Loading…</p></div>
+      <h2>Opening the app the first time</h2>
+      <p>
+        <strong>Windows:</strong> run the installer. It updates itself after
+        that.
+      </p>
+      <p>
+        <strong>Mac:</strong> the app isn’t signed with a paid Apple
+        certificate. Right-click Gather and choose Open, or run
+        <code>xattr -cr /Applications/Gather.app</code> in Terminal. Pick Apple
+        Silicon for M-series Macs and Intel for older ones.
+      </p>
+      <p>
+        <strong>Linux:</strong> run <code>chmod +x Gather-*.AppImage</code>,
+        then open it. Or install the .deb on Debian and Ubuntu.
+      </p>
+      <p class="muted">
+        Mac and Linux are previews and don’t update themselves yet. Come back
+        here for new versions.
+      </p>
+    </main>
+    <script>
+      var ua = navigator.userAgent;
+      var os = /Windows/i.test(ua)
+        ? "win32"
+        : /Macintosh|Mac OS X/i.test(ua)
+          ? "darwin"
+          : /Linux/i.test(ua) && !/Android/i.test(ua)
+            ? "linux"
+            : "";
+      var platform = {
+        "windows-x64": "win32",
+        "macos-arm64": "darwin",
+        "macos-x64": "darwin",
+        "linux-x64": "linux",
+        "linux-deb-x64": "linux",
+      };
+      var labels = {
+        "windows-x64": "Windows",
+        "macos-arm64": "Mac · Apple Silicon",
+        "macos-x64": "Mac · Intel",
+        "linux-x64": "Linux · AppImage",
+        "linux-deb-x64": "Linux · Debian / Ubuntu",
+      };
+      function link(entry, cls) {
+        var a = document.createElement("a");
+        a.className = "dl " + (cls || "");
+        a.href =
+          "/download/" +
+          (entry.id === "windows-x64" ? "windows" : entry.id) +
+          "?v=" +
+          encodeURIComponent(entry.version);
+        a.textContent = "Download for " + labels[entry.id];
+        var small = document.createElement("small");
+        small.textContent =
+          "Version " +
+          entry.version +
+          " · " +
+          Math.round(entry.size / 1048576) +
+          " MB" +
+          (entry.status === "preview" ? " · preview" : "");
+        a.appendChild(small);
+        return a;
+      }
+      fetch("/downloads/releases.json", { cache: "no-store" })
+        .then(function (r) {
+          if (!r.ok) throw new Error();
+          return r.json();
+        })
+        .then(function (catalog) {
+          var all = document.getElementById("all");
+          all.textContent = "";
+          catalog.releases.forEach(function (entry) {
+            if (!labels[entry.id] || platform[entry.id] === undefined) return;
+            all.appendChild(link(entry));
+          });
+          var mine = catalog.releases.filter(function (entry) {
+            return platform[entry.id] === os && labels[entry.id];
+          })[0];
+          if (mine)
+            document.getElementById("main").appendChild(link(mine, "main"));
+        })
+        .catch(function () {
+          document.getElementById("all").textContent =
+            "Downloads are unavailable right now. Please try again later.";
+        });
+    </script>
+  </body>
+</html>

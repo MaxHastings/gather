@@ -3132,6 +3132,22 @@ label .optional {
   margin-right: 12px;
   margin-bottom: 12px;
 }
+.landing-cta-small {
+  text-decoration: none;
+  min-height: 40px;
+  font-size: 14px;
+  padding: 0 18px;
+}
+.landing-nav-link {
+  float: right;
+  font-size: 14px;
+  color: #4a5d73;
+}
+.landing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
 .landing-points {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
@@ -3509,7 +3525,9 @@ label .optional {
 }
 @keyframes incoming-pulse {
   50% {
-    box-shadow: 0 12px 32px #24354a33, 0 0 0 4px #32b58a40;
+    box-shadow:
+      0 12px 32px #24354a33,
+      0 0 0 4px #32b58a40;
   }
 }
 @media (max-width: 860px) {

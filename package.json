@@ -57,6 +57,7 @@
   "build": {
     "appId": "com.gather.desktop",
     "productName": "Gather",
+    "afterPack": "scripts/adhoc-sign.cjs",
     "directories": {
       "output": "release"
     },
@@ -95,9 +96,7 @@
       "icon": "electron/icon.icns",
       "artifactName": "Gather-${version}-macOS-${arch}.${ext}",
       "category": "public.app-category.social-networking",
-      "hardenedRuntime": true,
-      "entitlements": "electron/entitlements.mac.plist",
-      "entitlementsInherit": "electron/entitlements.mac.plist",
+      "identity": null,
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Gather uses your microphone when you join a voice call."
       }
