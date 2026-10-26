@@ -90,7 +90,9 @@ try {
     .getByRole("button", { name: "Notifications", exact: true })
     .click();
   await desktop.getByLabel("Show names and message previews").uncheck();
-  await desktop.getByLabel(group.name, { exact: true }).check();
+  await desktop
+    .getByLabel(`Mute ${group.name}`, { exact: true })
+    .selectOption("forever");
   await send("Muted native message");
   await expect(
     desktop.getByText("Muted native message", { exact: true }).last(),
