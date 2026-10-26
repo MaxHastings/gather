@@ -364,7 +364,7 @@ try {
     a.token,
   );
   const chat = page.locator(".chat-item").filter({ hasText: "The usual crew" });
-  await expect(chat.getByLabel("Unread messages")).toBeVisible();
+  await expect(chat.getByLabel(/^1 unread message$/)).toBeVisible();
   await chat.click();
   for (let i = 0; i < 120; i++)
     await api(
